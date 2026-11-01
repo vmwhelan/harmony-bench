@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Harmony Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+/* Layout: a workbench. The instrument sits across the top like a guitar on a stand;
+   three drawers (scales, chords, progressions) slide out beneath it. Color is reserved
+   for harmonic meaning: chord-tone roles on instruments, harmonic function in progressions. */
+:root{
+  --bg:#e8eaee; --surface:#f7f8fa; --raised:#ffffff; --sunk:#dde0e6; --ink:#13161d; --muted:#565e70; --line:#cbd0da;
+  --root:#d4432a; --third:#2a6dbd; --fifth:#c38a0c; --seventh:#7849c4; --ext:#16876f;
+  --on-root:#ffffff; --on-third:#ffffff; --on-fifth:#1d1404; --on-seventh:#ffffff; --on-ext:#ffffff;
+  --fn-t:#2a6dbd; --fn-pd:#c38a0c; --fn-d:#d4432a; --fn-x:#7849c4;
+  --good:#1d7f47; --weak:#b8442e; --color:#7849c4; --ok:#4f5a70;
+  --wood:#3b2720; --board:#1c1917; --wood2:#2f1f19; --fretc:#cfc9bd; --stringc:#e4ddcc; --inlay:#efe7d5; --nut:#efe9da;
+  --sdot:#efe7d5; --on-sdot:#2a1c16;
+  --ivory:#fbfaf6; --ebony:#18181c; --keyline:#a9a69e;
+  --display:'Big Shoulders Display','Noto Music',Impact,'Arial Narrow',sans-serif;
+  --body:'Instrument Sans','Noto Music',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono','Noto Music',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1015; --surface:#161920; --raised:#1d2129; --sunk:#0a0c10; --ink:#eceef3; --muted:#9aa1b1; --line:#2a2f3a;
+    --root:#ff6a4c; --third:#5ea5ee; --fifth:#efbb45; --seventh:#a786f3; --ext:#3ac6a2;
+    --on-root:#0c0e12; --on-third:#0c0e12; --on-fifth:#0c0e12; --on-seventh:#0c0e12; --on-ext:#0c0e12;
+    --fn-t:#5ea5ee; --fn-pd:#efbb45; --fn-d:#ff6a4c; --fn-x:#a786f3;
+    --good:#45c27c; --weak:#ff7a5c; --color:#a786f3; --ok:#9aa1b1;
+    --ivory:#e8e6df; --ebony:#0d0d10; --keyline:#6e6c66;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1015; --surface:#161920; --raised:#1d2129; --sunk:#0a0c10; --ink:#eceef3; --muted:#9aa1b1; --line:#2a2f3a;
+  --root:#ff6a4c; --third:#5ea5ee; --fifth:#efbb45; --seventh:#a786f3; --ext:#3ac6a2;
+  --on-root:#0c0e12; --on-third:#0c0e12; --on-fifth:#0c0e12; --on-seventh:#0c0e12; --on-ext:#0c0e12;
+  --fn-t:#5ea5ee; --fn-pd:#efbb45; --fn-d:#ff6a4c; --fn-x:#a786f3;
+  --good:#45c27c; --weak:#ff7a5c; --color:#a786f3; --ok:#9aa1b1;
+  --ivory:#e8e6df; --ebony:#0d0d10; --keyline:#6e6c66;
+  color-scheme:dark;
+}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--third);outline-offset:2px}
+.app{max-width:1340px;margin:0 auto;display:grid;gap:18px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.01em;line-height:1.05;text-transform:uppercase}
+h3{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.02em;text-transform:uppercase}
+p{margin:0}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono)}
+.lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hint{color:var(--muted);font-size:13.5px;max-width:70ch}
+kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--raised)}
+
+/* header */
+/* Frozen header: pinned to the top of the window. At the top of the page it looks exactly like an ordinary
+   header (the spacer below it holds its full height); once the page scrolls it slims down and casts a shadow.
+   It is fixed rather than sticky, so slimming never moves the page content. */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:20;background:var(--bg);
+  padding-top:env(safe-area-inset-top,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  transition:box-shadow .2s ease}
+.topspace{height:var(--hdr-full,91px)}
+.top{max-width:1340px;margin:0 auto;display:flex;flex-wrap:wrap;gap:14px 28px;align-items:flex-end;justify-content:space-between;padding-block:18px 14px;transition:padding .2s ease,gap .2s ease}
+.brand p,.keyctl .fld>span{max-height:20px;overflow:hidden;transition:max-height .2s ease,opacity .2s ease}
+.brand svg,.brand h1{transition:height .2s ease,width .2s ease,font-size .2s ease}
+.topbar.stuck{box-shadow:0 1px 0 var(--line),0 6px 16px -8px rgba(0,0,0,.25)}
+.topbar.stuck .top{padding-block:8px;gap:8px 24px;align-items:center}
+.topbar.stuck .brand p,.topbar.stuck .keyctl .fld>span{max-height:0;opacity:0}
+.topbar.stuck .keyctl .fld{gap:0}
+.topbar.stuck .brand h1{font-size:26px}
+.topbar.stuck .brand svg{width:26px;height:34px}
+html{scroll-padding-top:calc(var(--hdr-now,70px) + 10px)}
+.brand{display:flex;gap:12px;align-items:center}
+.brand h1{font-family:var(--display);font-weight:800;font-size:34px;line-height:.9;text-transform:uppercase;letter-spacing:.01em}
+.brand p{font-size:13px;color:var(--muted)}
+.keyctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+.fld{display:grid;gap:3px}
+.fld>span{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+select,input[type=number]{background-color:var(--raised);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:14px;max-width:100%}
+/* Drop-downs are drawn by the page (not the browser), so every browser gives them the same height */
+select{-webkit-appearance:none;appearance:none;height:36px;line-height:1.2;padding:0 30px 0 10px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+select:hover{border-color:var(--ink)}
+input[type=number]{height:36px}
+.keyctl select{font-size:15px;font-weight:600;height:40px}
+input[type=number]{width:70px;font-family:var(--mono)}
+input[type=range]{accent-color:var(--ink)}
+input[type=checkbox]{accent-color:var(--ink);width:16px;height:16px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--raised);border-radius:6px;padding:7px 12px;font-size:14px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.sm{padding:4px 9px;font-size:13px}
+.btn svg{width:14px;height:14px;fill:currentColor}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--raised)}
+.seg button{border:0;background:none;padding:6px 11px;font-size:13.5px;border-right:1px solid var(--line);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.chk{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;white-space:nowrap}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.scroller{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+
+/* instrument panel. --nut is where the guitar nut sits in the neck drawing: the keyboard, chord info and
+   buttons below the neck line up with it */
+.inst{display:grid;grid-template-columns:minmax(0,1fr);gap:0;position:relative;--nut:150px;
+  --w:max(100%, min(calc(var(--neckw, 0px) + 34px), calc(100vw - 32px)));width:var(--w);margin-inline:calc((100% - var(--w)) / 2)}
+.instfoot{display:flex;align-items:flex-end;gap:10px 20px}
+/* the panel's parts are spaced with padding inside each group, so a folded group takes no room at all */
+.cg{min-width:0}
+.cg-in{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding-bottom:12px}
+.cg-foot>.cg-in{padding-bottom:0}
+.cg-neck,.cg-act{padding-bottom:12px}
+.tright{margin-left:auto;display:flex;gap:8px;align-items:center;align-self:flex-end;height:36px}
+.readrow{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-left:var(--nut);width:920px;max-width:calc(100% - var(--nut))}
+.neckwrap svg{width:var(--neckfit,auto);height:auto}
+.readrow .pianowrap{flex:0 1 auto;min-width:0}
+.actrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-left:var(--nut)}
+.pinbar{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
+.pinbar .btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pin-top,.pinctl{display:none}
+#pinBtn,#acts [data-act="addIdent"],#acts [data-act="replaceSel"]{gap:4px}
+.inst.piano-mode{--nut:0px}
+.inst.piano-mode .readrow{width:auto;max-width:100%}
+/* Pinned ("Pin while scrolling"): the panel floats under the header and folds as the page scrolls.
+   .floating: fixed in place (playing.js sets top, left, width, height). .side: chord info beside the neck,
+   the keyboard row shrinking. .compact: fully folded, with one row of controls. */
+.inst.floating{position:fixed;z-index:19;margin:0;overflow:hidden}
+.inst.floating.lifted{border-radius:0 0 12px 12px;border-top-color:transparent;box-shadow:0 10px 24px -12px rgba(0,0,0,.35)}
+.inst.floating .cg-top,.inst.floating .cg-read,.inst.floating .cg-foot{overflow:hidden}
+.inst.floating .cg-top{display:flex;flex-direction:column;justify-content:flex-end}
+.inst.side .cg-neck{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:8px 18px;align-items:center}
+.inst.side.piano-mode .cg-neck{display:none}
+.inst.side #neck svg{display:block;width:100%;height:auto}
+.inst.side #neckWrap{overflow:hidden;padding-bottom:0}
+/* beside the neck the chord info takes the neck's height (contain:size keeps it from ever making the row taller),
+   starts at the top, and its lines wrap instead of being cut off */
+.inst.side .cg-neck .idbox{flex:1 1 auto;width:auto;height:auto;contain:size;align-self:stretch;justify-content:flex-start;padding-top:4px}
+.inst.side .cg-neck .idbox .alts{white-space:normal;line-height:1.35}
+.inst.side .cg-neck .id-sym{font-size:32px}
+.inst.side .cg-neck .idbox .chips{flex-wrap:wrap}
+.inst.side #pianoWrap{transform:scale(var(--pk,1));transform-origin:left center}
+.inst.side .cg-read>.cg-in{height:100%;align-content:center}
+.inst.side .actrow{flex-wrap:nowrap}
+.inst.side .pin-top{display:inline-flex}
+.inst.compact{padding-top:8px;padding-bottom:10px}
+.inst.compact .cg-top,.inst.compact .cg-foot,.inst.compact:not(.piano-mode) .cg-read,.inst.compact #acts>:not(:first-child):not([data-act="addIdent"]):not([data-act="replaceSel"]){display:none}
+.inst.compact .cg-neck{padding-bottom:8px}
+.inst.compact .cg-act{padding-bottom:0}
+.inst.compact .actrow{margin-left:0}
+.inst.compact #acts{flex-wrap:nowrap;flex:0 0 auto}
+.inst.compact #acts .long,.inst.compact .pinbar .long{display:none}
+.inst.compact .pinctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;min-width:0}
+.pinctl .fld{grid-auto-flow:column;align-items:center;gap:6px}
+.pinctl select{height:30px;font-size:13px;max-width:165px}
+.pinctl .grp{display:flex;align-items:center;gap:6px}
+.pinctl .grp>.lbl,.pinctl .fld>span{font-size:10px}
+.pinctl .seg button{padding:4px 8px;font-size:12.5px}
+.neck .nextk,.nextk{fill:none;stroke:var(--stringc);stroke-width:2;stroke-dasharray:4 3}
+.pk .nextk{stroke:var(--ink);stroke-width:2}
+.fng{font-size:9px;font-weight:700;fill:var(--stringc);pointer-events:none}
+.practice{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px}
+.pgrp{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.practice .fld{grid-auto-flow:column;align-items:center;gap:6px}
+.trainer{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:14px}
+.trainer input[type=number]{width:58px;height:30px;padding:0 6px}
+.btn.tgl[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.drawer{border:1px solid var(--line);background:var(--raised);border-radius:10px;padding:10px 12px;display:grid;gap:10px}
+.drawer-h{display:flex;gap:12px;align-items:baseline}
+.drawer-h b{font-family:var(--display);font-size:20px;text-transform:uppercase}
+.drawer-h .mx{margin-left:auto}
+.drawer-row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end}
+.drawer input[type=number]{width:80px}
+.lvl{width:90px;height:8px;border-radius:4px;background:var(--sunk);overflow:hidden;align-self:center}
+.lvl i{display:block;height:100%;width:0;background:var(--ext);transition:width .07s linear}
+.tn-out{display:grid;gap:8px;min-height:120px;align-content:start}
+.tn-out.idle{opacity:.45}
+.tn-main{display:flex;gap:18px;align-items:center}
+.tn-note{font-family:var(--display);font-weight:800;font-size:64px;line-height:.9}
+.tn-note sub{font-size:24px}
+.tn-read{display:grid;font-size:15px}
+.tn-read b{font-family:var(--mono);font-size:22px}
+.tn-read span{color:var(--muted);font-family:var(--mono)}
+.neck .tmark{fill:none;stroke-width:4;pointer-events:none}
+.neck .tmark.in{stroke:var(--good)}
+.neck .tmark.near{stroke:var(--fifth)}
+.neck .tmark.off{stroke:var(--root)}
+.tn-chord .tn-note sub{font-size:22px}
+.genre-note{margin:8px 0}
+.miniplayer{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;max-width:calc(100vw - 24px);padding:8px 14px 8px 8px;background:var(--raised);border:1px solid var(--line);border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.miniplayer[hidden]{display:none}
+.miniplayer .play{width:38px;height:38px}
+.mp-now{display:flex;align-items:baseline;gap:8px;min-width:0}
+.mp-sym{font-family:var(--display);font-weight:800;font-size:24px;line-height:1}
+.mp-next,.mp-where{color:var(--muted);font-size:13px;white-space:nowrap}
+.mp-tempo{display:inline-flex;align-items:center;gap:4px}
+.mp-tempo .mono{min-width:3ch;text-align:center}
+body.mini-on .toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+body.mini-on{padding-bottom:84px}
+@media (max-width:520px){.miniplayer{border-radius:14px;gap:8px;width:calc(100vw - 24px);flex-wrap:nowrap;justify-content:space-between;padding-right:8px}.miniplayer .chk{gap:4px}.mp-where,.miniplayer .long{display:none}.mp-sym{font-size:20px}}
+.part-an{margin:4px 0 8px}
+.part-an summary{cursor:pointer;color:var(--muted);font-size:13px}
+.part-an .summary{margin:6px 0 0}
+.part .banner{margin:6px 0}
+.patrow{display:inline-flex;gap:4px;align-items:center;max-width:100%}
+.patrow select{min-width:0;max-width:min(280px,calc(100vw - 140px))}
+.pkeys .pkStrum{max-width:min(240px,calc(100vw - 80px))}
+.patopts{display:flex;flex-wrap:wrap;gap:10px}
+.patgrid{display:flex;flex-wrap:wrap;gap:8px}
+.patbeat{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.patcell{display:grid;justify-items:center;width:30px;padding:2px 0;border:1px solid var(--line);border-radius:4px;background:var(--raised);cursor:pointer;font:inherit}
+.patcell small{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.patcell b{font-family:var(--mono);font-size:14px}
+.patcell.on{border-color:var(--ink);background:var(--sunk)}
+.replist{display:grid;gap:4px;max-height:200px;overflow:auto;padding:2px}
+.replist .rep{display:flex;justify-content:space-between;gap:12px;align-items:baseline;text-align:left;border:1px solid var(--line);background:var(--raised);border-radius:6px;padding:6px 10px;cursor:pointer;font:inherit}
+.replist .rep small{color:var(--muted);white-space:nowrap}
+.replist .rep:hover{border-color:var(--ink)}
+.replist .rep[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.shapectl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.shapectl select{max-width:100%}
+.shapenav{display:inline-flex;gap:4px;align-items:center}
+.shapenav .mono{font-size:12px;min-width:9ch;text-align:center;color:var(--muted)}
+.tn-chord{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.tn-chord .tn-note{font-size:52px}
+.tn-chord .btn{margin-left:auto}
+.tn-chord.idle{color:var(--muted)}
+.tn-chord.idle span{font-size:14px}
+.tn-main.in .tn-read b,.pt-row.in .pt-c{color:var(--good)}
+.tn-main.near .tn-read b,.pt-row.near .pt-c{color:var(--fifth)}
+.tn-main.off .tn-read b,.pt-row.off .pt-c{color:var(--root)}
+.tn-meter{position:relative;height:34px;border-radius:8px;background:var(--sunk);display:flex;justify-content:space-between;align-items:flex-end;padding:0 8px 2px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.tn-meter b,.pt-bar b{position:absolute;left:calc(50% - 6%);width:12%;top:0;bottom:0;background:color-mix(in srgb,var(--good) 22%,transparent)}
+.tn-meter i,.pt-bar i{position:absolute;top:3px;bottom:3px;width:4px;margin-left:-2px;border-radius:2px;background:var(--ink);transition:left .08s linear}
+.tn-meter.in i,.pt-row.in .pt-bar i{background:var(--good)}
+.tn-meter.off i,.pt-row.off .pt-bar i{background:var(--root)}
+.tn-str{font-size:14px}
+.pt-row{display:grid;grid-template-columns:120px 1fr 120px;gap:10px;align-items:center;font-family:var(--mono);font-size:13px}
+.pt-row.quiet{opacity:.45}
+.pt-bar{position:relative;height:18px;border-radius:5px;background:var(--sunk)}
+.capo-shapes{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;margin-top:2px}
+.tools{display:grid;gap:12px}
+.trow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.trow .seg button{padding:5px 9px}
+.trow .grp{gap:7px}
+.tools .grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.neckwrap{border-radius:8px;padding-bottom:4px}
+svg text{font-family:var(--mono)}
+.neck .wood{fill:var(--wood)}
+.neck .inlay{fill:var(--inlay);opacity:.55}
+.neck .fretw{stroke:var(--fretc);stroke-width:2.4}
+.neck.fretless .wood{fill:var(--board)}
+.neck.fretless .fretw{stroke-width:1;stroke-dasharray:2 5;opacity:.35}
+.neck .outk{fill:none;stroke:var(--stringc);stroke-width:2;stroke-dasharray:3 3}
+.neck .nut{fill:var(--nut)}
+.neck .str{stroke:var(--stringc)}
+.neck .str.dead{opacity:.28}
+.neck .fnum{fill:var(--muted);font-size:10.5px;text-anchor:middle}
+.neck .fnum.b{fill:var(--ink);font-weight:600}
+.neck .fnum.flink{fill:var(--third);cursor:pointer;text-decoration:underline dotted;font-weight:600}
+.neck .fnum.flink:hover{fill:var(--ink)}
+.neck .hit{fill:transparent;cursor:pointer}
+.neck .hit:hover{fill:rgba(255,255,255,.08)}
+.neck .gut circle,.neck .gut rect{fill:var(--raised);stroke:var(--line)}
+.neck .gut text{fill:var(--ink);font-size:13px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.neck .gut{cursor:pointer}
+.neck .gut:hover circle,.neck .gut:hover rect{stroke:var(--ink)}
+.neck .tname{fill:var(--ink);font-size:12.5px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.neck .mute rect{fill:var(--raised)}
+.neck .mute.on rect{fill:var(--ink);stroke:var(--ink)}
+.neck .mute.on text{fill:var(--bg)}
+.neck .mk{pointer-events:none}
+.neck .xm{fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round}
+.dl{font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.sd{fill:var(--sdot);opacity:.92}
+.sd-t{fill:var(--on-sdot)}
+.sd.kr{fill:var(--sdot);stroke:var(--root);stroke-width:2.5;opacity:1}
+.r-f{fill:var(--root)} .t-f{fill:var(--third)} .f-f{fill:var(--fifth)} .s-f{fill:var(--seventh)} .x-f{fill:var(--ext)} .n-f{fill:var(--ink)}
+.r-t{fill:var(--on-root)} .t-t{fill:var(--on-third)} .f-t{fill:var(--on-fifth)} .s-t{fill:var(--on-seventh)} .x-t{fill:var(--on-ext)} .n-t{fill:var(--bg)}
+.r-s{stroke:var(--root)} .t-s{stroke:var(--third)} .f-s{stroke:var(--fifth)} .s-s{stroke:var(--seventh)} .x-s{stroke:var(--ext)} .n-s{stroke:var(--ink)}
+.ring{fill:none;stroke:var(--stringc);stroke-width:2}
+.ghost{opacity:.5}
+
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.idbox{display:flex;flex-direction:column;justify-content:center;gap:4px;flex:0 0 300px;width:300px;height:158px;min-width:0;overflow:hidden}
+.id-sym{font-family:var(--display);font-weight:800;font-size:40px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.id-sub{display:grid;gap:2px;min-width:0}
+.id-name{font-weight:600}
+.alts{font-size:13.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.id-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ovNote{min-height:1.5em;margin:0;max-width:none}
+.alts b{color:var(--ink);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.idbox .chips{flex-wrap:nowrap;gap:4px;margin-top:4px;overflow-x:auto;scrollbar-width:none}
+.idbox .nchip{font-size:11.5px;padding:1px 5px;gap:4px;flex:0 0 auto}
+.nchip{display:inline-flex;gap:5px;align-items:baseline;border:1px solid var(--line);border-radius:5px;padding:2px 7px;font-family:var(--mono);font-size:12.5px;background:var(--raised)}
+.nchip i{font-style:normal;font-size:11px;color:var(--muted)}
+.nchip.r{border-color:var(--root)} .nchip.t{border-color:var(--third)} .nchip.f{border-color:var(--fifth)} .nchip.s{border-color:var(--seventh)} .nchip.x{border-color:var(--ext)}
+.nchip.mutedstr{opacity:.5}
+.nchip.outk{border-style:dashed;border-color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.pianowrap svg{display:block}
+.pk-w{fill:var(--ivory);stroke:var(--keyline)}
+.pk-b{fill:var(--ebony)}
+.pk{cursor:pointer}
+
+.pk-lbl{font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.pk-oct{font-size:9px;fill:var(--keyline);text-anchor:middle;pointer-events:none}
+.pk-dot{pointer-events:none}
+.pk rect.r-f{fill:var(--root)} .pk rect.t-f{fill:var(--third)} .pk rect.f-f{fill:var(--fifth)} .pk rect.s-f{fill:var(--seventh)} .pk rect.x-f{fill:var(--ext)} .pk rect.n-f{fill:var(--ink)}
+.pk:hover rect.pk-w:not([class*="-f"]){fill:var(--sunk)}
+#neck,#piano{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+
+/* tabs */
+/* The tabs stay in view: they stop under the header (or under the pinned instrument panel) */
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--ink);overflow-x:auto;position:sticky;top:calc(var(--hdr-now,56px) + var(--pin-h,0px));z-index:15;background:var(--bg)}
+.tabs button{border:0;background:none;padding:10px 16px 8px;font-family:var(--display);font-weight:800;font-size:20px;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);border-radius:8px 8px 0 0;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.tabpanel{display:grid;gap:22px;align-content:start;min-height:calc(100vh - var(--hdr-now,56px) - var(--pin-c,0px) - 70px)}
+.sec{display:grid;gap:10px}
+.sec-h{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+
+/* scales */
+.sc-title{display:grid;gap:6px}
+.sc-title h2{font-size:40px}
+.scnotes{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.sn{display:grid;justify-items:center;gap:0;border:1px solid var(--line);background:var(--raised);border-radius:8px;padding:6px 10px 5px;min-width:58px}
+.sn b{font-family:var(--display);font-size:26px;font-weight:800;line-height:1}
+.sn .dg{font-family:var(--mono);font-size:12px;font-weight:600}
+.sn .iv{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.sn.root{border-color:var(--root);box-shadow:inset 0 0 0 1px var(--root)}
+.sn.lit{background:var(--ink);color:var(--bg)}
+.sn.lit .iv{color:var(--bg)}
+.step{font-family:var(--mono);font-size:11px;color:var(--muted);padding:2px 4px;border-radius:4px;background:var(--sunk)}
+.step.aug{color:var(--root);font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.card{position:relative;border:1px solid var(--line);background:var(--raised);border-radius:9px;min-width:0}
+.card>.main{all:unset;box-sizing:border-box;display:grid;gap:2px;padding:10px 11px 10px;width:100%;cursor:pointer;border-radius:9px}
+.card>.main:focus-visible{outline:2px solid var(--third)}
+.card .rn{font-family:var(--mono);font-size:14px;font-weight:600}
+.card .sym{font-family:var(--display);font-weight:800;font-size:30px;line-height:1;overflow-wrap:anywhere}
+.card .qn{font-size:12px;color:var(--muted)}
+.card .nn{font-family:var(--mono);font-size:11.5px}
+.card.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.card .add{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--surface);font-weight:700;line-height:1}
+.card .add:hover{background:var(--ink);color:var(--bg)}
+.fn-stripe{height:4px;border-radius:9px 9px 0 0;margin:-1px -1px 0}
+.fnT{background:var(--fn-t)} .fnPD{background:var(--fn-pd)} .fnD{background:var(--fn-d)} .fnX{background:var(--fn-x)}
+table.grid{border-collapse:collapse;font-size:14px;min-width:100%}
+table.grid th,table.grid td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+table.grid th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+table.grid tbody tr{cursor:pointer}
+table.grid tbody tr:hover{background:var(--sunk)}
+table.grid tr.cur{background:var(--ink);color:var(--bg)}
+table.grid tr.cur .alt{color:var(--bg)}
+table.grid td.n{font-family:var(--mono);font-weight:600}
+table.grid td .alt{color:var(--root);font-weight:700}
+table.grid td.first{font-weight:700}
+.fits{display:grid;gap:6px}
+.fitrow{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:start;padding:6px 0;border-bottom:1px solid var(--line)}
+.fitrow .who{font-family:var(--mono);font-size:13px;font-weight:600}
+.cchip{border:1px solid var(--line);background:var(--raised);border-radius:5px;padding:2px 8px;font-size:13px;font-family:var(--body)}
+.cchip:hover{border-color:var(--ink)}
+.cchip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* chord library */
+.libtop{display:grid;gap:12px}
+.roots{display:flex;flex-wrap:wrap;gap:5px}
+.roots button{min-width:46px;border:1px solid var(--line);background:var(--raised);border-radius:6px;padding:6px 8px;font-family:var(--display);font-weight:800;font-size:19px}
+.roots button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.roots button.inkey{box-shadow:inset 0 -3px 0 var(--root)}
+.qgroups{display:grid;gap:8px}
+.qg{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:start}
+.qchip{position:relative}
+.qchip.fit::after{content:"";position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--root)}
+.libmain{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+.libinfo{display:grid;gap:10px}
+.big-sym{font-family:var(--display);font-weight:800;font-size:60px;line-height:.9}
+.formula{display:grid;grid-template-columns:auto auto 1fr;gap:3px 12px;font-size:13.5px;align-items:center}
+.formula .dot{width:10px;height:10px;border-radius:50%}
+.formula .fm{font-family:var(--mono);font-weight:600}
+.shapes{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.shape{border:1px solid var(--line);background:var(--raised);border-radius:8px;padding:6px 6px 6px;display:grid;justify-items:center;gap:2px}
+.shape:hover{border-color:var(--ink)}
+.shape.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.shape .cap{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center}
+.shape .cap b{color:var(--ink)}
+.dg-line{stroke:var(--muted);stroke-width:1}
+.dg-nut{fill:var(--ink)}
+.dg-capo{fill:var(--third)}
+.dg-x{fill:var(--muted);font-size:10px;text-anchor:middle;dominant-baseline:central}
+.dg-fr{fill:var(--muted);font-size:9.5px;text-anchor:end}
+.dg-barre{fill:var(--ink);opacity:.18}
+.pv{border:1px solid var(--line);background:var(--raised);border-radius:8px;padding:8px;display:grid;gap:4px}
+.pv:hover{border-color:var(--ink)}
+.pvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+
+/* progression */
+/* Transport: every item's control sits on one 36px line (labels above), so all their centres line up */
+.transport{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end}
+.transport>:not(.fld){min-height:36px;display:flex;align-items:center}
+.transport .btn{height:36px}
+.transport .tempo{height:36px}
+.transport>.play{width:40px;height:40px;min-height:0;margin-bottom:-2px;display:grid}
+.play{width:46px;height:46px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);display:grid;place-items:center;flex:0 0 auto}
+.play svg{width:18px;height:18px;fill:currentColor}
+.tempo{display:flex;align-items:center;gap:8px}
+.tempo input[type=range]{width:130px}
+.timeline{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;min-height:96px;padding:10px;border:1px dashed var(--line);border-radius:10px;background:var(--surface)}
+.slot{position:relative;display:grid;grid-template-rows:auto 1fr auto;gap:3px;border:1px solid var(--line);border-radius:8px;background:var(--raised);padding:0 8px 6px;min-width:calc(42px + var(--b,4)*15px);cursor:pointer}
+.slot .fn-stripe{margin:0 -8px 3px;border-radius:8px 8px 0 0}
+.slot .top{display:flex;justify-content:space-between;gap:6px;font-family:var(--mono);font-size:11.5px}
+.slot .top .bar{color:var(--muted)}
+.slot .sym{font-family:var(--display);font-weight:800;font-size:26px;line-height:1;white-space:nowrap}
+.slot .ctl{display:flex;gap:3px;align-items:center}
+.slot .ctl select{height:24px;padding:0 18px 0 4px;font-size:12px;font-family:var(--mono);border-radius:4px;background-position:calc(100% - 10px) 52%,calc(100% - 6px) 52%;background-size:4px 4px,4px 4px}
+.slot .ctl button{border:1px solid var(--line);background:var(--surface);border-radius:4px;width:22px;height:22px;padding:0;font-size:13px;line-height:1}
+.slot .top .brk{border:0;background:none;padding:0 2px;margin-left:4px;font-size:12px;line-height:1;color:var(--muted);border-radius:3px;cursor:pointer}
+.slot .top .brk:hover{color:var(--ink);background:var(--sunk)}
+.slot .top .brk[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.tl-break{flex-basis:100%;height:0}
+.tlbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 0 8px}
+.fld.inline{display:inline-flex;flex-direction:row;align-items:center;gap:6px}
+.timeline.charts .slot{grid-template-rows:auto auto 1fr auto;min-width:max(112px,calc(42px + var(--b,4)*15px))}
+.slot .sdg{display:grid;justify-items:center;align-content:start;gap:1px}
+.slot .sdg svg{max-width:100%;height:auto}
+.slot .sdg .mono{font-size:10.5px;color:var(--muted)}
+.slot.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.slot.now{background:var(--ink);color:var(--bg)}
+.slot.now .top .bar{color:var(--bg)}
+.slot.drag{opacity:.4}
+.conn{align-self:center;display:grid;justify-items:center;font-family:var(--mono);font-size:10.5px;line-height:1.2;color:var(--muted);min-width:34px;text-align:center}
+.conn b{font-weight:600}
+.k-strong{color:var(--good)} .k-ok{color:var(--ok)} .k-color{color:var(--color)} .k-weak{color:var(--weak)}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;border:1px solid currentColor;white-space:nowrap}
+.empty{color:var(--muted);align-self:center;font-size:14px}
+.tchart svg{display:block;width:100%;height:auto}
+.progcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px;align-items:start}
+.detail{display:grid;gap:12px}
+.dhead{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+.dhead .big-sym{font-size:50px}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.tag i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.why{display:grid;gap:4px;font-size:14px}
+.why li{margin-left:18px}
+.why ul{margin:0;padding:0}
+.recs{display:grid;gap:6px}
+.slotnote{font-size:14px;border-left:3px solid var(--third);padding:6px 10px;background:var(--raised);border-radius:0 6px 6px 0}
+.rec{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--raised);padding:8px 10px}
+.rec .rs{font-family:var(--display);font-weight:800;font-size:22px;line-height:1;min-width:64px;text-align:left;border:1px solid transparent;background:none;border-radius:6px;padding:3px 6px;margin:-3px -6px}
+.rec .rs:hover{border-color:var(--line);background:var(--surface)}
+.rec .rs small{display:block;font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--muted)}
+.rec .rw{font-size:13px;min-width:0}
+.rec .rw .pill{margin-right:6px}
+.rec .ra{display:flex;gap:4px}
+.rgroup{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.palette{display:grid;gap:10px}
+.palrow{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:start}
+.pchip{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--raised)}
+.pchip button{border:0;background:none;padding:4px 8px;font-size:13.5px}
+.pchip button.p{font-weight:600}
+.pchip button.p small{font-family:var(--mono);font-weight:500;color:var(--muted);margin-left:5px}
+.pchip button.a{border-left:1px solid var(--line);font-weight:700}
+.pchip button:hover{background:var(--sunk)}
+.summary{font-size:15px;max-width:80ch}
+.foot{font-size:12.5px;color:var(--muted)}
+.notetip{position:fixed;z-index:35;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:7px;padding:6px 10px;font-size:12.5px;line-height:1.35;display:grid;gap:1px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:260px}
+.notetip b{font-family:var(--mono);font-size:14px}
+.notetip span{opacity:.8}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:14px;display:flex;gap:12px;align-items:center;z-index:30;max-width:calc(100vw - 32px)}
+.toast button{background:none;border:1px solid var(--bg);color:var(--bg);border-radius:5px;padding:2px 8px}
+
+
+/* files, dialogs, selection, songs */
+.tunbtns{display:inline-flex;gap:6px;align-self:flex-end}
+.filebar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px}
+.fb-id{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;min-width:0}
+.fb-name{font-family:var(--display);font-weight:800;font-size:22px;line-height:1;overflow-wrap:anywhere}
+.fb-date{font-size:12.5px}
+.fb-notes{flex-basis:100%;font-size:13px;color:var(--muted);white-space:pre-wrap;max-width:80ch}
+.fb-acts{display:flex;flex-wrap:wrap;gap:6px}
+.banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:2px solid var(--ink);border-radius:10px;padding:10px 12px;background:var(--raised)}
+.banner.soft{border:1px solid var(--line);border-left:4px solid var(--third)}
+.syncb{font-weight:500}
+.seltools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seltools .hint{margin-right:6px}
+.btn:disabled{opacity:.45;cursor:default}
+.slot.insel{background:color-mix(in srgb,var(--third) 14%,var(--raised));border-color:var(--third)}
+.modal{position:fixed;inset:0;background:rgba(10,12,16,.5);display:grid;place-items:center;z-index:40;padding:16px}
+.mbox{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:16px;display:grid;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.mhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mx{border:0;background:none;font-size:24px;line-height:1;color:var(--muted)}
+.mbody{display:grid;gap:10px}
+.macts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.form{display:grid;gap:10px}
+.form input[type=text],.mbody textarea,.part textarea{width:100%;background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:inherit;color:inherit}
+.mbody textarea.mono{font-family:var(--mono);font-size:13px}
+fieldset.fld{border:0;padding:0;margin:0;display:grid;gap:4px}
+.orow{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:8px 0}
+.oinfo{display:grid;gap:1px;min-width:0;font-size:13.5px}
+.oinfo b{font-size:15px}
+.onotes{font-size:12.5px;color:var(--muted);white-space:pre-wrap;max-height:3.2em;overflow:hidden}
+.oacts{display:flex;gap:6px}
+.parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:10px}
+.part{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;display:grid;gap:8px;min-width:0}
+.part-h{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.pname{font-family:var(--display);font-weight:800;font-size:22px;text-transform:uppercase;border:1px solid transparent;background:none;border-radius:6px;padding:2px 6px;min-width:0;flex:1}
+.pname:hover,.pname:focus{border-color:var(--line);background:var(--raised)}
+.strip{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.sbar{display:inline-flex;gap:6px;border-left:2px solid var(--muted);padding:2px 8px;font-family:var(--mono);font-size:13.5px;font-weight:600}
+.sbar:last-child{border-right:2px solid var(--muted)}
+.sc-chip.cont{color:var(--muted);font-weight:400}
+.sc-chip.now{background:var(--ink);color:var(--bg);border-radius:4px;padding:0 4px}
+.sec>select{justify-self:start;max-width:100%}
+.arrange{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.arr{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);background:var(--raised);border-radius:6px;padding:3px 4px 3px 9px}
+.arr button{border:0;background:none;width:22px;height:22px;border-radius:4px;color:var(--muted)}
+.arr button:hover{background:var(--sunk);color:var(--ink)}
+.arr .arr-name{width:auto;padding:0 5px;font-weight:700;color:var(--ink);cursor:pointer}
+.arr.from{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.arr.now .arr-name,.arr.now .arr-name:hover{color:var(--bg);background:none}
+.sheet .sc-chip{cursor:pointer;border-radius:4px}
+.sheet .sc-chip:hover{background:var(--sunk)}
+.arr.now{background:var(--ink);color:var(--bg)}
+.arr.now button{color:var(--bg)}
+.sheet{display:grid;gap:14px}
+.sh-title b{font-family:var(--display);font-size:28px;font-weight:800}
+.sh-part{display:grid;gap:4px;border-left:3px solid transparent;padding-left:10px}
+.sh-part.now{border-left-color:var(--root)}
+.sh-name{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+/* song sections: own key, meter and tempo */
+.pkeys{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px}
+.pkeys .pk2{display:flex;gap:4px}
+.pkeys select{height:32px;font-size:13px}
+.pkeys .pkSc{max-width:190px}
+.pkeys input[type=number]{height:32px;width:74px}
+.pkeys>.pill,.pkeys>.btn{margin-bottom:3px}
+.rec.idea{grid-template-columns:minmax(0,1fr) auto}
+.nk-h{margin:14px 0 4px;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+/* editing a song section: where it comes from and where it goes */
+.panel.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px 26px}
+.links .lk{display:grid;gap:8px;align-content:start;min-width:0}
+.links .lk>p{margin:0}
+.links .lbl{margin:4px 0 0}
+.part.offkey{border-color:var(--weak);box-shadow:inset 3px 0 0 var(--weak)}
+.arr small{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:4px}
+.arr.offkey{border-color:var(--weak)}
+.sh-tag{font-family:var(--mono);font-size:11px;letter-spacing:0;text-transform:none;color:var(--color);margin-left:6px}
+.sh-lyr{margin:0;font-family:var(--body);font-size:15px;white-space:pre-wrap}
+.notation{overflow-x:auto;padding:10px 6px}
+.notation svg{display:block;max-width:100%;height:auto}
+.notation .hint{margin:4px 8px 0}
+.sh-title + .sh-part{margin-top:0}
+/* Printable chord sheet: only #printArea prints, always dark ink on white paper */
+#printArea{display:none}
+@media print{
+  @page{margin:14mm}
+  html{padding:0!important}
+  body{background:#fff!important;margin:0}
+  body > *:not(#printArea){display:none!important}
+  #printArea{display:block;color:#000;font-family:var(--body);font-size:12pt;
+    --bg:#fff; --surface:#fff; --raised:#fff; --sunk:#eee; --ink:#000; --muted:#555; --line:#bbb;
+    --root:#d4432a; --third:#2a6dbd; --fifth:#c38a0c; --seventh:#7849c4; --ext:#16876f;
+    --on-root:#fff; --on-third:#fff; --on-fifth:#1d1404; --on-seventh:#fff; --on-ext:#fff;
+    --ivory:#fff; --ebony:#222; --keyline:#888;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact}
+  .pr-head{border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:12px}
+  .pr-head h1{font-family:var(--display);font-size:30pt;font-weight:800;margin:0;line-height:1}
+  .pr-by{font-size:13pt;margin-top:2px}
+  .pr-info{font-family:var(--mono);font-size:9.5pt;color:#333;margin-top:4px}
+  .pr-notes{font-size:10.5pt;margin:6px 0 0;white-space:pre-wrap}
+  .pr-dgs{display:flex;flex-wrap:wrap;gap:8px 14px;margin:0 0 14px}
+  .pr-dg{display:grid;justify-items:center;gap:1px;break-inside:avoid}
+  .pr-dg b{font-family:var(--mono);font-size:12pt}
+  .pr-dg .mono{font-family:var(--mono);font-size:8pt;color:#555}
+  .pr-bars{display:grid;grid-template-columns:repeat(4,1fr);border-left:1.5px solid #000;margin:4px 0 10px}
+  .pr-bar{display:flex;gap:10px;align-items:flex-start;border-right:1.5px solid #000;padding:6px 8px;min-height:34px;break-inside:avoid}
+  .pr-c{display:grid}
+  .pr-c b{font-family:var(--mono);font-size:13pt}
+  .pr-c small{font-family:var(--mono);font-size:8.5pt;color:#555}
+  .pr-sec{break-inside:avoid;margin:0 0 12px}
+  .pr-sec h2{font-family:var(--mono);font-size:10pt;letter-spacing:.08em;text-transform:uppercase;margin:0 0 2px}
+  .pr-sec h2 small{font-size:9pt;letter-spacing:0;text-transform:none;color:#555;margin-left:6px}
+  .pr-not{break-inside:auto}
+  .pr-sec h2,.pr-arr{break-after:avoid}
+  .pr-not svg{width:100%;height:auto}
+  .pr-lyr{font-family:var(--body);font-size:12pt;white-space:pre-wrap;margin:4px 0 0}
+  .pr-arr{font-size:10.5pt;margin:0 0 10px}
+  .pr-foot{margin-top:16px;font-family:var(--mono);font-size:8pt;color:#777}
+}
+@media (max-width:1100px){ .cards{grid-template-columns:repeat(4,minmax(0,1fr))} .progcols,.libmain{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:720px){
+  .inst.side .cg-neck{grid-template-columns:minmax(0,1fr)}
+  .inst.side #neckWrap{overflow-x:auto}
+  .inst.side #neck svg{width:auto}
+  .inst.side .cg-neck .idbox{flex-direction:row;align-items:baseline;gap:12px;contain:none;padding-top:0}
+  .inst.side .cg-neck .idbox .alts,.inst.side .cg-neck .idbox .chips,.inst.compact .pinctl,.inst.side .pinbar .long{display:none}
+  .topbar.stuck .top{gap:6px 12px}
+  .topbar.stuck .keyctl{flex-wrap:nowrap;width:100%;gap:8px}
+  .topbar.stuck .keyctl .fld{flex:1 1 0;min-width:0}
+  .topbar.stuck .keyctl .fld:first-child{flex:0 0 auto}
+  .topbar.stuck .keyctl select{width:100%;height:36px;font-size:14px}
+  .topbar.stuck .brand h1{font-size:22px}
+  .topbar.stuck .brand svg{width:22px;height:28px}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .qg,.palrow,.fitrow{grid-template-columns:minmax(0,1fr);gap:4px}
+  .sc-title h2{font-size:32px}
+  .brand h1{font-size:28px}
+  .tabs button{font-size:17px;padding:8px 10px 6px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"><div class="top">
+  <div class="brand">
+    <svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true"><line x1="2" y1="6" x2="32" y2="6" stroke="currentColor" stroke-width="1" opacity=".35"/><line x1="2" y1="16" x2="32" y2="16" stroke="currentColor" stroke-width="1" opacity=".35"/><line x1="2" y1="26" x2="32" y2="26" stroke="currentColor" stroke-width="1" opacity=".35"/><line x1="2" y1="36" x2="32" y2="36" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="17" cy="36" r="5" style="fill:var(--root)"/><circle cx="17" cy="26" r="5" style="fill:var(--third)"/><circle cx="17" cy="16" r="5" style="fill:var(--fifth)"/><circle cx="17" cy="6" r="5" style="fill:var(--seventh)"/></svg>
+    <div><h1>Harmony Bench</h1><p>Fretboard, scales, chords and progressions</p></div>
+  </div>
+  <div class="keyctl">
+    <label class="fld"><span>Key</span><select id="keyRoot"></select></label>
+    <label class="fld"><span>Scale or mode</span><select id="keyScale"></select></label>
+    <label class="fld"><span>Instrument</span><select id="inst"></select></label>
+  </div>
+</div></header>
+<div class="topspace" aria-hidden="true"></div>
+
+<main class="app">
+  <section class="panel inst" aria-label="Instrument">
+    <!-- groups: while pinned the panel folds them away in turn (read, then foot, then top) as the page scrolls -->
+    <div class="cg cg-top"><div class="cg-in">
+      <div class="tools">
+        <div class="trow">
+          <div class="grp" id="tunGrp"><label class="fld" id="tunFld"><span>Tuning</span><select id="tunPreset"></select></label><label class="fld" id="capoFld"><span>Capo</span><select id="capo"></select></label><label class="fld"><span id="fretsLbl">Frets</span><select id="fretsSel"><option value="15">15</option><option value="24">24</option></select></label></div>
+          <label class="fld"><span>Sound</span><select id="soundSel"></select></label>
+          <label class="fld"><span>Sustain</span><select id="sustainSel" title="How long notes and chords ring"><option value="short">Short</option><option value="medium">Medium</option><option value="long">Long</option></select></label>
+          <div class="fld" id="shapeFld"><span>Scale shapes</span><div class="shapectl"><select id="shapeSys" aria-label="Scale shape system"></select><select id="shapeDeg" aria-label="Starting note"></select><select id="shapeStr" aria-label="Starting string"></select><select id="shapeCaged" aria-label="CAGED shape"></select><span id="shapeNav" class="shapenav"><button type="button" class="btn sm" data-act="shapeSlide" data-d="-1" title="Move this shape down the neck" aria-label="Move the shape down the neck">◀</button><span id="shapeFr" class="mono"></span><button type="button" class="btn sm" data-act="shapeSlide" data-d="1" title="Move this shape up the neck" aria-label="Move the shape up the neck">▶</button></span></div></div>
+          <div class="tright">
+            <button type="button" class="btn sm tgl" id="tunerBtn" data-act="tunerToggle" aria-pressed="false" title="Tune with a microphone or an audio interface">Tuner</button>
+            <button type="button" class="btn sm tgl" id="midiBtn" data-act="midiToggle" aria-pressed="false" title="Play a MIDI keyboard into Harmony Bench">MIDI keyboard</button>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="grp"><span class="lbl" id="clickLbl">Click a fret to</span><div class="seg" id="clickMode"></div></div>
+          <div class="grp" id="labGrp"><span class="lbl">Labels</span><div class="seg" id="labels"></div></div>
+          <div class="grp" id="ovGrp"><span class="lbl">Highlight</span><div class="seg" id="overlay"></div></div>
+          <label class="chk" id="pianoChk"><input type="checkbox" id="showPiano"> Show piano</label>
+          <label class="chk" title="While a progression plays, outline where the next chord goes"><input type="checkbox" id="showNext"> Show next chord</label>
+        </div>
+      </div>
+      <div class="drawer" id="tunerBox" hidden></div>
+      <div class="drawer" id="midiBox" hidden></div>
+    </div></div>
+    <div class="cg cg-neck">
+      <div class="scroller neckwrap" id="neckWrap"><div id="neck"></div></div>
+    </div>
+    <div class="cg cg-read"><div class="cg-in">
+      <div class="readrow" id="readRow">
+        <div class="scroller pianowrap" id="pianoWrap"><div id="piano"></div></div>
+        <div class="idbox" id="idOut" aria-live="polite"></div>
+      </div>
+    </div></div>
+    <div class="cg cg-act">
+      <div class="actrow">
+        <div class="acts" id="acts"></div>
+        <div class="pinctl" id="pinCtl"></div>
+      </div>
+    </div>
+    <div class="cg cg-foot"><div class="cg-in">
+      <p class="hint" id="ovNote" aria-live="polite"></p>
+      <div class="instfoot">
+        <div class="legend" id="legend">
+          <span><i style="background:var(--root)"></i>Root</span><span><i style="background:var(--third)"></i>3rd (or sus 2/4)</span><span><i style="background:var(--fifth)"></i>5th</span><span><i style="background:var(--seventh)"></i>7th</span><span><i style="background:var(--ext)"></i>6th, 9th, 11th, 13th</span><span><i style="background:var(--sdot);border:2px solid var(--root)"></i>Key note (scale highlight)</span><span><i style="background:none;border:2px dashed var(--muted)"></i>Played, but outside the scale</span>
+        </div>
+        <div class="pinbar"><button type="button" class="btn sm pin-top" data-act="pinTop" title="Back to the top" aria-label="Back to the top">↑ Top</button><button type="button" class="btn sm" id="pinBtn" data-act="pinToggle" aria-pressed="false" aria-label="Pin while scrolling" title="Keep the instrument on screen while you scroll down">Pin<span class="long">while scrolling</span></button></div>
+      </div>
+    </div></div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" id="t-scales" data-act="tab" data-tab="scales">Scales &amp; modes</button>
+    <button role="tab" id="t-chords" data-act="tab" data-tab="chords">Chord library</button>
+    <button role="tab" id="t-prog" data-act="tab" data-tab="prog">Progression builder</button>
+    <button role="tab" id="t-song" data-act="tab" data-tab="song">Song builder</button>
+  </nav>
+
+  <section class="tabpanel" id="p-scales" role="tabpanel" aria-labelledby="t-scales"></section>
+  <section class="tabpanel" id="p-chords" role="tabpanel" aria-labelledby="t-chords"></section>
+  <section class="tabpanel" id="p-prog" role="tabpanel" aria-labelledby="t-prog"></section>
+  <section class="tabpanel" id="p-song" role="tabpanel" aria-labelledby="t-song"></section>
+
+  <p class="foot">Shortcuts: <kbd>Space</kbd> plays or stops the progression · <kbd>S</kbd> strums the neck · <kbd>1</kbd>–<kbd>7</kbd> play the chords of the key · in the progression builder, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>C</kbd> <kbd>X</kbd> <kbd>V</kbd> <kbd>D</kbd> copy, cut, paste and duplicate chords, <kbd>Delete</kbd> removes them. Saved work lives in this browser; use Backup / transfer to move it. Sound starts after your first click.</p>
+</main>
+<div class="toast" id="toast" hidden></div>
+<div class="modal" id="modal" hidden><div class="mbox" role="dialog" aria-modal="true"></div></div>
+<script src="theory.js"></script>
+<script src="app.js"></script>
+<script src="playing.js"></script>
+<script src="band.js"></script>
+<script src="inputs.js"></script>
+<script src="print.js"></script>
+<script src="sections.js"></script>
+<script src="genres.js"></script>
+<script src="patterns.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

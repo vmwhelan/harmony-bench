@@ -1,0 +1,20 @@
+services:
+  harmony-bench:
+    build: .
+    image: harmony-bench:latest
+    container_name: harmony-bench
+    ports:
+      # http (change the number on the left, or set HB_PORT)
+      - "${HB_PORT:-8080}:8080"
+      # https, needed for the tuner and MIDI keyboard input (or set HB_HTTPS_PORT)
+      - "${HB_HTTPS_PORT:-8443}:8443"
+    environment:
+      # Optional: your server's name and/or IP address(es), comma-separated, added to the https certificate
+      - HB_HOSTNAMES=${HB_HOSTNAMES:-}
+    volumes:
+      # Saved tunings, progressions, songs and the https certificate live here and survive updates
+      - harmony-data:/data
+    restart: unless-stopped
+
+volumes:
+  harmony-data:
