@@ -248,7 +248,7 @@ You can also open the tab directly with `#learn` at the end of the address.
 
 ## The analyzer (chords outside the key)
 
-The analyzer is a panel that opens on the right (at the bottom on a phone) and explains where a chord comes from. It never changes your chords. Close it with **×** or **Esc**. Open it with:
+The analyzer is a panel that opens on the right (at the bottom on a phone) and explains where a chord comes from. It floats over the page, so nothing behind it moves, and it never changes your chords. Close it with **×** or **Esc**. Open it with:
 
 - **Analyze…** above the Progression builder's chords: the whole progression.
 - **Why?** on any row of *What could come next* or *Substitutions and approaches*: the progression as if you had added or swapped that chord.
