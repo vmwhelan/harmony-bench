@@ -265,7 +265,13 @@ function fitsKey(ch){ return ch.pcs.every(p => K.pcs.has(p)); }
 
 /* ---- progression items are stored relative to the key, so they transpose ---- */
 const toItem = (ch, b) => ({ s: mod(ch.rootPc - K.pc), l: mod(ch.rootL - K.L, 7), q: ch.qid, b: b || 4, ...(ch.bassPc != null ? { bs: mod(ch.bassPc - K.pc) } : {}) });
-const fromItem = it => mkChord(mod(K.pc + it.s), mod(K.L + it.l, 7), it.q, it.bs != null ? mod(K.pc + it.bs) : null);
+// it.nm: a name the player gave the chord (shown instead of the standard one, which stays in name0 and is what
+// analysis, suggestions and transposing use)
+const fromItem = it => {
+  const c = mkChord(mod(K.pc + it.s), mod(K.L + it.l, 7), it.q, it.bs != null ? mod(K.pc + it.bs) : null);
+  if (it.nm){ c.name0 = c.symbol; c.symbol = it.nm; c.custom = true; }
+  return c;
+};
 
 /* ---- identify a chord from sounding notes ---- */
 function identify(midis){
@@ -312,6 +318,31 @@ function identify(midis){
 
 /* ---- fretted voicing search: works for any tuning and string count ---- */
 const VCACHE = new Map();
+// The chords nearest to a set of notes that has no exact name: exact readings first, then chords ranked by how
+// many of the notes they leave out (extra) and how many of their own notes are missing. Each: { ch, extra, missing }
+function closestChords(midis, n = 8){
+  if (!midis.length) return [];
+  const sorted = [...midis].sort((a, b) => a - b), bass = mod(sorted[0]), pcs = [...new Set(sorted.map(m => mod(m)))];
+  const out = identify(midis).map(ch => ({ ch, extra: [], missing: [] })), seen = new Set(out.map(x => x.ch.symbol));
+  if (pcs.length < 2) return out;
+  const cands = [];
+  for (let r = 0; r < 12; r++) for (const q of QLIST){
+    if (q.dyad || q.id === '5') continue;
+    const tones = new Set(q.full.map(s => mod(r + s))), extra = pcs.filter(p => !tones.has(p)), missing = q.req.map(s => mod(r + s)).filter(p => !pcs.includes(p));
+    if (extra.length + missing.length > 3 || (!pcs.includes(r))) continue;
+    // a note under the chord that isn't one of its notes reads as a slash bass, not as a wrong note
+    const bassOut = !tones.has(bass), ex = bassOut ? extra.filter(p => p !== bass) : extra;
+    cands.push({ r, q: q.id, extra: ex, missing, slash: r !== bass, score: ex.length * 1.2 + missing.length + (r !== bass ? 0.5 : 0) + (bassOut ? 0.4 : 0) + q.rank * 0.05 });
+  }
+  cands.sort((a, b) => a.score - b.score);
+  for (const c of cands){
+    const ch = chordAt(c.r, c.q, c.slash ? bass : null);
+    if (seen.has(ch.symbol)) continue;
+    seen.add(ch.symbol); out.push({ ch, extra: c.extra, missing: c.missing });
+    if (out.length >= n) break;
+  }
+  return out;
+}
 function fretVoicings(ch, tun, inv = false, FR = 15){
   const n = tun.length;
   const key = tun.join(',') + '|' + FR + '|' + ch.rootPc + ch.qid + '|' + (ch.bassPc ?? '') + '|' + (inv ? 1 : 0);
@@ -506,7 +537,7 @@ function tonicization(ch){
 
 const ACACHE = new Map();
 function analyze(ch){
-  const key = K.pc + S.scale + ch.symbol + ch.qid;
+  const key = K.pc + S.scale + (ch.name0 || ch.symbol) + ch.qid;
   if (ACACHE.has(key)) return ACACHE.get(key);
   const r = analyzeRaw(ch); ACACHE.set(key, r); return r;
 }

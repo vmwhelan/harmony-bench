@@ -217,6 +217,15 @@ Click **MIDI keyboard** above the neck. Works in Chrome, Edge, Opera and Firefox
 - The chord you hold is named, shown on the keyboard, and highlighted on the neck (with Highlight set to Chord or Solo).
 - **+ Add the last chord** adds it to the progression, after the selected chord. Turn on **Add each chord I play to the progression** to build a progression just by playing chords one after another.
 
+## Adding chords the finder can't name
+
+When the notes on the neck or keyboard don't make a standard chord, the readout shows **?** and **+ Add** opens a dialog instead of refusing. **Add as…** (next to + Add) opens the same dialog for any notes, to give a chord your own name.
+
+- It lists the **closest chords**, each saying how it differs from what you are playing ("your D♯ isn't in it", "it has G♯, which you aren't playing"). The one you pick is what Harmony Bench uses behind the scenes for the analysis, suggestions and transposing.
+- **Name to show**: type any name (it starts as the closest chord's name). The chord card, chord charts and print-outs show your name.
+- The chord is added with **exactly the notes you are playing** (a locked voicing, ✎), so it always sounds as you played it. **Replace …** swaps it in for the selected chord instead.
+- Select the chord later to **Rename…** it or **Use the name …** (the standard one). Any chord can be given your own name this way. Custom names are kept when you copy, paste and save, but don't change when you transpose.
+
 ## Which key is which (and the key history)
 
 The header's key always says whose key it is, in the small label above it:

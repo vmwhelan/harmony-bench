@@ -279,11 +279,12 @@ function chartText(items, perLine = 4){
   for (let i = 0; i < bars.length; i += perLine) lines.push('| ' + bars.slice(i, i + perLine).join(' | ') + ' |');
   return lines.join('\n');
 }
-const absFromItem = it => ({ pc: mod(K.pc + it.s), L: mod(K.L + it.l, 7), q: it.q, b: it.b, bs: it.bs != null ? mod(K.pc + it.bs) : null, keyPc: K.pc, vos: vosOf(it), pv: it.pv, br: it.br });
+const absFromItem = it => ({ pc: mod(K.pc + it.s), L: mod(K.L + it.l, 7), q: it.q, b: it.b, bs: it.bs != null ? mod(K.pc + it.bs) : null, keyPc: K.pc, vos: vosOf(it), pv: it.pv, br: it.br, ...(it.nm ? { nm: it.nm } : {}) });
 function itemFromAbs(a){
   const it = toItem(mkChord(a.pc, a.L, a.q, a.bs), a.b);
   if (a.keyPc === K.pc){ if (a.vos) it.vos = clone(a.vos); if (a.pv) it.pv = clone(a.pv); }
   if (a.br) it.br = true;
+  if (a.nm) it.nm = a.nm;
   return it;
 }
 function copyToSystem(text){

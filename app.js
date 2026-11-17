@@ -685,8 +685,8 @@ function renderReadout(){
   $('#acts').innerHTML = fr
     ? (kind() === 'bowed' && soundFor('bowed').gen === 'bowed'
       ? `<button class="btn primary" data-act="strum" data-d="down">Bow chord</button><button class="btn" data-act="strum" data-d="up">Bow (high to low)</button><button class="btn" data-act="strum" data-d="pick">One string at a time</button>`
-      : `<button class="btn primary" data-act="strum" data-d="down">Strum ↓</button><button class="btn" data-act="strum" data-d="up">Strum ↑</button><button class="btn" data-act="strum" data-d="pick">Pick</button>`) + `<button class="btn" data-act="clearShape">Open strings</button><button class="btn" data-act="muteAll">Mute all</button><button class="btn" data-act="addIdent" title="Add this chord to the progression" aria-label="Add this chord to the progression">+ Add<span class="long">to progression</span></button>`
-    : `<button class="btn primary" data-act="strum" data-d="down">Play chord</button><button class="btn" data-act="strum" data-d="pick">Arpeggiate</button><button class="btn" data-act="clearShape">Clear notes</button><button class="btn" data-act="addIdent" title="Add this chord to the progression" aria-label="Add this chord to the progression">+ Add<span class="long">to progression</span></button>`;
+      : `<button class="btn primary" data-act="strum" data-d="down">Strum ↓</button><button class="btn" data-act="strum" data-d="up">Strum ↑</button><button class="btn" data-act="strum" data-d="pick">Pick</button>`) + `<button class="btn" data-act="clearShape">Open strings</button><button class="btn" data-act="muteAll">Mute all</button><button class="btn" data-act="addIdent" title="Add this chord to the progression" aria-label="Add this chord to the progression">+ Add<span class="long">to progression</span></button><button class="btn" data-act="addCustom" title="Add these exact notes with a name you choose (picks the closest standard chord for analysis)">Add as…</button>`
+    : `<button class="btn primary" data-act="strum" data-d="down">Play chord</button><button class="btn" data-act="strum" data-d="pick">Arpeggiate</button><button class="btn" data-act="clearShape">Clear notes</button><button class="btn" data-act="addIdent" title="Add this chord to the progression" aria-label="Add this chord to the progression">+ Add<span class="long">to progression</span></button><button class="btn" data-act="addCustom" title="Add these exact notes with a name you choose (picks the closest standard chord for analysis)">Add as…</button>`;
   // in the Progression builder: overwrite the selected chord with what's on the neck (or keyboard)
   const sel = S.tab === 'prog' && prog[ui.selSlot];
   if (sel) $('#acts').insertAdjacentHTML('beforeend', `<button class="btn" data-act="replaceSel"${ui.ident[0] ? '' : ' disabled'} aria-label="Replace ${fromItem(sel).symbol} with this chord" title="Replace the selected chord (${fromItem(sel).symbol}, chord ${ui.selSlot + 1}) with the chord on the ${fr ? 'neck' : 'keyboard'}, keeping its length and this exact voicing">Replace<span class="long">${fromItem(sel).symbol}</span></button>`);
@@ -717,7 +717,7 @@ function renderReadout(){
     const s = midis.slice().sort((a, b) => a - b), iv = mod(s[s.length - 1] - s[0]);
     sym = `${nameFor(s[0])}–${nameFor(s[s.length - 1])}`; name = `Interval: ${SEMI_NAME[iv]}`;
     lines.push('Two different notes make an interval; add a third note for a full chord.');
-  } else { sym = '?'; name = 'No standard chord name for these notes'; lines.push('Try muting a string or moving one finger.'); }
+  } else { sym = '?'; name = 'No standard chord name for these notes'; lines.push('Try muting a string or moving one finger, or use <b>Add as…</b> to add it with your own name.'); }
   // #idOut has a fixed height with its content centred, so lines can come and go without moving anything
   const main = `<div class="id-sym">${sym}</div><div class="id-sub"><span class="id-name">${name}</span>${lines.filter(Boolean).map(l => `<span class="alts">${l}</span>`).join('')}</div>`;
   $('#idOut').innerHTML = main + `<div class="chips">${notes}</div>`;
@@ -1415,6 +1415,7 @@ function renderProg(){
     }
     detail = `<div class="dhead"><div class="big-sym">${X.symbol}</div><div><div class="mono" style="font-size:20px;font-weight:600">${a.rn}</div><button class="tag an-link" data-act="anSel" title="Open in the analyzer: where it comes from, its notes and how the voices move"><i class="${FN_CLASS[a.fn]}"></i>${FN_NAME[a.fn]} · ${a.origin}${a.src ? ` (from ${esc(keyNameOf(a.src))})` : ''} <span class="an-go">Analyze ›</span></button></div></div>
       <p>${a.text}</p>
+      ${X.custom ? `<p class="slotnote">You named this chord <b>${esc(X.symbol)}</b>. Harmony Bench treats it as <b>${X.name0}</b>, the closest standard chord, for the analysis and suggestions, and plays the exact notes you chose. A custom name doesn't change when you transpose. <span class="acts" style="margin-top:6px"><button class="btn sm" data-act="ccRename">Rename…</button><button class="btn sm" data-act="ccClear">Use the name ${X.name0}</button></span></p>` : `<p><button class="btn sm" data-act="ccRename" title="Show this chord under a name you choose">Give it your own name…</button></p>`}
       ${trBlock(trIn, `Coming in from ${prev ? prev.symbol : ''}`)}
       ${trBlock(trOut, `Going out to ${next ? nx.label : ''}`)}
       ${soloHTML(X)}
@@ -1787,7 +1788,7 @@ const ACT = {
   // the chord goes into the progression exactly as it is fingered on the neck (or held on the keyboard)
   addIdent: () => {
     const ch = ui.ident[0];
-    if (!ch){ toast('These notes do not form a named chord yet.'); return; }
+    if (!ch){ if (new Set(activeMidis().map(m => mod(m))).size >= 2) customChordDialog(); else toast('Play at least two different notes first.'); return; }
     addToProg(ch);
     lockFromInstrument(prog[ui.selSlot]);
     save();
@@ -1798,7 +1799,7 @@ const ACT = {
     const ch = ui.ident[0], i = ui.selSlot, old = prog[i] && clone(prog[i]);
     if (!ch || !old) return;
     const was = fromItem(old).symbol;
-    prog[i] = toItem(ch, old.b);
+    prog[i] = inSection({ key: docKey() }, () => toItem(ch, old.b));
     lockFromInstrument(prog[i]);
     save(); renderProg();
     toast(`Replaced ${was} with ${ch.symbol} (chord ${i + 1}).`, { label: 'Undo', fn: () => { prog[i] = old; save(); renderProg(); } });
@@ -2021,3 +2022,73 @@ document.addEventListener('drop', e => {
   dragI = -1; renderProg();
 });
 document.addEventListener('dragend', () => { dragI = -1; document.querySelectorAll('.slot.drag').forEach(s => s.classList.remove('drag')); });
+
+/* ================= Chords the finder can't name =================
+   "Add as…" (and "+ Add" when the notes have no standard name): the closest standard chords, each saying which of
+   the played notes it leaves out or which of its notes are missing, and a name of your own. The chord is added
+   with the exact notes played (a locked voicing), so it always sounds as played; the chosen standard chord is what
+   analysis, suggestions and transposing use. */
+function customChordDialog(){
+  const midis = activeMidis(), sorted = [...midis].sort((a, b) => a - b);
+  if (new Set(sorted.map(m => mod(m))).size < 2){ toast('Play at least two different notes first.'); return; }
+  const m = closestChords(midis);
+  if (!m.length){ toast('No chord is close to these notes.'); return; }
+  ui.cc = { m, frets: fretted() && !midiActive() ? shape().slice() : null, midis: sorted, edited: false };
+  // a note spelled as it relates to a chord's root (D♯ against A, not E♭)
+  const STEP = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6], rel = (ch, pc) => spell(ch.rootL + STEP[mod(pc - ch.rootPc)], pc);
+  const names = (ch, ps) => ps.map(p => rel(ch, p)).join(', ');
+  const rows = m.map((x, i) => {
+    const diff = x.extra.length || x.missing.length ? [x.extra.length ? `your ${names(x.ch, x.extra)} ${x.extra.length > 1 ? 'aren’t' : 'isn’t'} in it` : '', x.missing.length ? `it has ${names(x.ch, x.missing)}, which you aren’t playing` : ''].filter(Boolean).join('; ') : 'exactly your notes';
+    return `<label class="cc-row"><input type="radio" name="ccPick" value="${i}"${i === 0 ? ' checked' : ''}><b>${x.ch.symbol}</b><span class="muted">${x.ch.q.name}${x.ch.bassName ? `, ${x.ch.bassName} in the bass` : ''}</span><span class="cc-diff${diff === 'exactly your notes' ? ' k-strong' : ''}">${diff}</span></label>`;
+  }).join('');
+  const sel = S.tab === 'prog' && prog[ui.selSlot] ? fromItem(prog[ui.selSlot]).symbol : null;
+  openModal('Add these notes as a chord', `<p>Your notes: <b class="mono">${sorted.map(x => rel(m[0].ch, x) + (Math.floor(x / 12) - 1)).join(' ')}</b>${ui.ident[0] ? '' : ' (no standard chord name)'}.</p>
+    <div class="fld"><span>Closest chords (used for analysis and suggestions)</span><div class="cc-list">${rows}</div></div>
+    <label class="fld"><span>Name to show</span><input id="ccName" type="text" maxlength="24" value="${esc(m[0].ch.symbol)}"></label>
+    <p class="hint">The chord is added with exactly the notes you are playing, so it always sounds like this. The name is only what is shown on the chord card, chart and print-out.</p>`,
+    [{ label: 'Cancel', act: 'modalClose' }, ...(sel ? [{ label: `Replace ${esc(sel)}`, act: 'ccGo', arg: 'replace' }] : []), { label: 'Add to progression', act: 'ccGo', arg: 'add', primary: true }]);
+}
+document.addEventListener('change', e => {
+  if (e.target.name === 'ccPick' && ui.cc && !ui.cc.edited){ const x = ui.cc.m[+e.target.value]; if (x) $('#ccName').value = x.ch.symbol; }
+});
+document.addEventListener('input', e => { if (e.target.id === 'ccName' && ui.cc) ui.cc.edited = true; });
+// the played notes locked onto an item, and the custom name (none when it equals the standard one)
+function ccApply(it, ch, name){
+  if (ui.cc.frets && fretted()) setVo(it, ui.cc.frets);
+  else it.pv = ui.cc.midis.slice();
+  if (name && name !== ch.symbol) it.nm = name; else delete it.nm;
+}
+Object.assign(ACT, {
+  addCustom: () => customChordDialog(),
+  ccGo: el => {
+    const cc = ui.cc; if (!cc) return;
+    const pick = document.querySelector('input[name=ccPick]:checked'), x = cc.m[pick ? +pick.value : 0], name = ($('#ccName').value || '').trim();
+    closeModal();
+    if (el.dataset.arg === 'replace' && prog[ui.selSlot]){
+      const i = ui.selSlot, old = clone(prog[i]), was = fromItem(old).symbol;
+      prog[i] = inSection({ key: docKey() }, () => toItem(x.ch, old.b));
+      ccApply(prog[i], x.ch, name);
+      save(); renderProg();
+      toast(`Replaced ${esc(was)} with ${esc(name || x.ch.symbol)}.`, { label: 'Undo', fn: () => { prog[i] = old; save(); renderProg(); } });
+      return;
+    }
+    addToProg(x.ch);
+    ccApply(prog[ui.selSlot], x.ch, name);
+    save(); if (S.tab === 'prog') renderProg();
+    toast(`Added ${esc(name || x.ch.symbol)}${name && name !== x.ch.symbol ? ` (analyzed as ${x.ch.symbol})` : ''} to the progression.`, S.tab === 'prog' ? null : { label: 'View', fn: () => { S.tab = 'prog'; renderAll(); } });
+  },
+  ccRename: () => {
+    const it = prog[ui.selSlot]; if (!it) return;
+    const ch = fromItem(it);
+    ui.modal = { mode: 'ccRename' };
+    openModal('Name this chord', `<label class="fld"><span>Name to show</span><input id="ccNewName" type="text" maxlength="24" value="${esc(ch.symbol)}"></label><p class="hint">Harmony Bench still treats it as <b>${ch.name0 || ch.symbol}</b> for analysis and suggestions. Leave the name empty to use the standard one.</p>`,
+      [{ label: 'Cancel', act: 'modalClose' }, { label: 'Rename', act: 'ccRenameOk', primary: true }]);
+  },
+  ccRenameOk: () => {
+    const it = prog[ui.selSlot]; if (!it) return;
+    const name = ($('#ccNewName').value || '').trim(), std = fromItem({ ...it, nm: undefined }).symbol;
+    if (name && name !== std) it.nm = name; else delete it.nm;
+    closeModal(); save(); renderProg();
+  },
+  ccClear: () => { const it = prog[ui.selSlot]; if (!it) return; delete it.nm; save(); renderProg(); },
+});

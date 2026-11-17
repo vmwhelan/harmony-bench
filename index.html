@@ -709,6 +709,10 @@ button.tag.an-link{border:0;background:none;padding:0;cursor:pointer;text-align:
 .ln-n.on{border:1px solid var(--line);background:var(--raised);color:var(--ink)}.ln-n.on.root{border-color:var(--root);box-shadow:inset 0 0 0 1px var(--root)}
 .ln-st{font-family:var(--mono);font-size:11px;padding:2px 4px;border-radius:4px;background:var(--sunk);color:var(--muted);opacity:.4}.ln-st.on{opacity:1;color:var(--ink)}
 .ln-modes{display:flex;flex-wrap:wrap;gap:6px}
+.cc-list{display:grid;gap:4px;max-height:42vh;overflow:auto;padding:2px}
+.cc-row{display:grid;grid-template-columns:auto auto 1fr;gap:2px 10px;align-items:baseline;border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:var(--raised);cursor:pointer}
+.cc-row b{font-family:var(--display);font-size:18px}.cc-row .cc-diff{grid-column:2 / -1;font-size:12.5px;color:var(--muted)}.cc-row .cc-diff.k-strong{color:var(--good)}
+.cc-row:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
 .ln-keynotes{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 .ln-note{min-width:42px;border:1px solid var(--line);background:var(--raised);border-radius:7px;padding:5px 8px;font-family:var(--display);font-weight:800;font-size:18px;line-height:1}
 .ln-note.acc{border-color:var(--root);box-shadow:inset 0 0 0 1px var(--root)}.ln-note:hover{background:var(--sunk)}
