@@ -33,6 +33,7 @@ An interactive music theory and chord progression app for guitarists, bassists, 
 | `sections.js` | Song sections with their own key, time signature and tempo; key-change and transition ideas |
 | `patterns.js` | Strumming and picking patterns, the pattern editor |
 | `analyzer.js` | The analyzer pop-out: where chords outside the key come from, tonicizations, extended dominants and secondary ii–V labels |
+| `learn.js` | The Learn tab: lessons with interactive widgets (intervals, scales, chords, circle of fifths, voice leading, chords outside the key, modulation) |
 | `genres.js` | Genre guide: style profiles (typical chords, moves, modes, key changes and classic progressions) |
 | `vendor/vexflow.js` | [VexFlow](https://www.vexflow.com) 4.2.5, the music-notation library (MIT licence, see `vendor/VEXFLOW-LICENSE.txt`); loaded only when sheet music is shown |
 | `docs.js` | Saving and opening, copy/paste, time signatures and the song builder |
@@ -225,6 +226,20 @@ The header's key always says whose key it is, in the small label above it:
 - A new progression or song starts in the key you were working in. Opening a saved song always uses the song's own key and its sections' keys.
 - When the progression's key changes from the header menu, a message says so, with **Undo** (also for a saved progression that becomes a new one). **Whole song − / +** and loading a classic progression have Undo too, and Undo also puts the key back.
 - **🕘 Key history** (next to the key) lists every key change, newest first: which key changed (progression, song, a section, or the explore key), from what to what, what happened to the chords (moved, or kept and re-labelled), and what caused it (the header menu, Transpose, Analyze in…, opening a document, Undo…). Tick *Only changes to a progression, song or section key* to hide the rest. A change with no known cause is highlighted: if a key ever seems to change by itself, **Copy as text** and send that along. The history is kept in this browser only (the last 300 changes) and is not part of backups.
+
+## Learn
+
+The **Learn** tab (after Song builder) has short lessons for someone starting from zero, each with something to play with. Terms are explained the first time they appear (hover over a dotted word for a reminder). It uses the explore key in the header, like Scales and the Chord library, so nothing on it changes your progression or song. Pick a lesson on the left (or from the menu on a phone):
+
+1. **Notes as numbers**: the 12 notes on a clock face. Pick two notes to see how many half steps apart they are, the interval's name, its frequency ratio (an octave is 2 : 1, a 5th 3 : 2) and how it sounds, apart and together.
+2. **Scales and keys from steps**: build any scale step by step (W W H W W W H for major), see why sharps and flats appear, and hear the modes as the same notes from another starting note.
+3. **Chords from stacked thirds**: the 7 chords of the key with their Roman numerals and jobs (tonic, pre-dominant, dominant), as triads or 7ths, each playable.
+4. **The circle of fifths**: an interactive circle (major keys outside, relative minors inside). Click a key to see its key signature and its main chords (the shaded wedge) and hear I–IV–V–I; click another to see how far apart they are and how many notes change. The text explains the "math": 7 half steps × 12 visits every note, clockwise is toward the dominant, secondary dominants are one more step clockwise, borrowed chords come from three steps counter-clockwise.
+5. **Tension and resolution**: pick a move (V7 → I, vii°7 → I, IV → I, iv → I, V → vi, V7/vi → vi, ♭VII → I, ii → V, or any two chords) and see each voice move on a little piano roll: half steps in red, notes that stay in green. Play each voice alone, only the moving voices, both chords, or a version where the leading tone doesn't resolve, to hear the difference.
+6. **Chords outside the key**: reference cards for secondary dominants, extended dominants, secondary leading-tone chords, ii–V of X, secondary subdominants, the rare secondary mediant/submediant/subtonic, ♭VII, borrowed chords, the Neapolitan, tritone substitutes and chromatic mediants: how to build each, an example in C (▶ hear it resolve), how common it is, where it works and when it doesn't, and **Open in analyzer**.
+7. **Changing key (modulation)**: pivot chords, going through the new key's V7, the direct "truck-driver" lift and borrowed pivots, with examples to hear, where each goes in a song (into the chorus, the bridge, the last chorus), and a link to the Song builder's key-change ideas.
+
+You can also open the tab directly with `#learn` at the end of the address.
 
 ## The analyzer (chords outside the key)
 

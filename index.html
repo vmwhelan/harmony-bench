@@ -686,6 +686,44 @@ fieldset.fld{border:0;padding:0;margin:0;display:grid;gap:4px}
 button.tag.an-link{border:0;background:none;padding:0;cursor:pointer;text-align:left;color:inherit}
 .an-link .an-go{font-family:var(--mono);font-size:11px;color:var(--third);margin-left:4px;white-space:nowrap}
 .an-link:hover .an-go{text-decoration:underline}
+/* Learn tab */
+.learn{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;align-items:start}
+.ln-nav{display:grid;gap:4px;position:sticky;top:calc(var(--hdr-now,56px) + var(--pin-h,0px) + 60px)}
+.ln-nav button{display:flex;gap:10px;align-items:baseline;text-align:left;border:1px solid transparent;background:none;border-radius:7px;padding:7px 10px;font-size:14.5px}
+.ln-nav button:hover{border-color:var(--line);background:var(--raised)}
+.ln-nav button[aria-current="true"]{background:var(--ink);color:var(--bg)}
+.ln-nav .mono{font-size:12px;opacity:.7}
+.ln-pick{display:none}
+.ln-body{display:grid;gap:12px;min-width:0;max-width:880px}
+.ln-body>p,.ln-body .an-ul{max-width:76ch}
+.ln-body dfn{font-style:normal;font-weight:600;border-bottom:1px dotted var(--muted);cursor:help}
+.ln-w{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px;display:grid;gap:10px;min-width:0}
+.ln-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px;align-items:center}
+.ln-facts{display:grid;gap:10px;align-content:start}
+.ln-big{font-size:18px}
+.ln-clock{width:100%;max-width:280px;display:block;margin:auto}
+.ln-scale{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.ln-n{display:grid;justify-items:center;min-width:46px;border:1px dashed var(--line);border-radius:8px;padding:5px 6px;color:var(--muted)}
+.ln-n b{font-family:var(--display);font-size:22px;line-height:1}.ln-n small{font-family:var(--mono);font-size:11px}
+.ln-n.on{border:1px solid var(--line);background:var(--raised);color:var(--ink)}.ln-n.on.root{border-color:var(--root);box-shadow:inset 0 0 0 1px var(--root)}
+.ln-st{font-family:var(--mono);font-size:11px;padding:2px 4px;border-radius:4px;background:var(--sunk);color:var(--muted);opacity:.4}.ln-st.on{opacity:1;color:var(--ink)}
+.ln-modes{display:flex;flex-wrap:wrap;gap:6px}
+.ln-cards .card{text-align:left;font:inherit;color:inherit;padding:0}.ln-cards .card .main{display:grid;gap:2px;padding:10px 11px}
+.ln-circle{width:100%;max-width:360px;display:block;margin:auto}
+.ln-sec{fill:var(--raised);stroke:var(--line);stroke-width:1;cursor:pointer}.ln-sec.min{fill:var(--surface)}
+.ln-sec:hover{fill:var(--sunk)}.ln-sec.wedge{fill:color-mix(in srgb,var(--third) 16%,var(--raised))}.ln-sec.on{fill:var(--ink)}
+.ln-ct{font-family:var(--display);font-weight:800;font-size:16px;fill:var(--ink);pointer-events:none}.ln-ct.min{font-size:12.5px}.ln-ct.on{fill:var(--bg)}
+.ln-cs{font-size:9.5px;fill:var(--muted);pointer-events:none}.ln-cr{font-size:9.5px;font-weight:700;fill:var(--third);pointer-events:none}.ln-cs.on,.ln-cr.on{fill:var(--bg)}
+.ln-cc{font-family:var(--display);font-weight:800;font-size:28px;fill:var(--ink)}
+.ln-roll{width:100%;max-width:340px;display:block;margin:auto}
+.ln-vl{display:grid;gap:6px;align-content:start}
+.ln-vrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:13.5px}.ln-vrow b{font-family:var(--mono);font-size:15px}.ln-vrow small{color:var(--root);font-weight:600}
+.ln-vrow>span:nth-child(2){min-width:72px;color:var(--muted)}
+.ln-cards2{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:10px}
+.ln-oc{display:grid;gap:8px;align-content:start;padding:12px}.ln-oc h4{margin:0;font-size:16px}.ln-oc p{font-size:14px}
+.ln-ex{display:flex;flex-wrap:wrap;gap:4px 12px}.ln-ex span{display:grid;font-weight:600}.ln-ex small{font-size:10.5px;color:var(--muted);font-weight:500}.ln-ex .ln-f{color:var(--root)}
+.ln-next{display:flex;justify-content:space-between;gap:8px;margin-top:8px;flex-wrap:wrap}
+@media (max-width:860px){.learn{grid-template-columns:minmax(0,1fr)}.ln-nav{display:none}.ln-pick{display:grid}.ln-two{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -761,12 +799,14 @@ button.tag.an-link{border:0;background:none;padding:0;cursor:pointer;text-align:
     <button role="tab" id="t-chords" data-act="tab" data-tab="chords">Chord library</button>
     <button role="tab" id="t-prog" data-act="tab" data-tab="prog">Progression builder</button>
     <button role="tab" id="t-song" data-act="tab" data-tab="song">Song builder</button>
+    <button role="tab" id="t-learn" data-act="tab" data-tab="learn">Learn</button>
   </nav>
 
   <section class="tabpanel" id="p-scales" role="tabpanel" aria-labelledby="t-scales"></section>
   <section class="tabpanel" id="p-chords" role="tabpanel" aria-labelledby="t-chords"></section>
   <section class="tabpanel" id="p-prog" role="tabpanel" aria-labelledby="t-prog"></section>
   <section class="tabpanel" id="p-song" role="tabpanel" aria-labelledby="t-song"></section>
+  <section class="tabpanel" id="p-learn" role="tabpanel" aria-labelledby="t-learn"></section>
 
   <p class="foot">Shortcuts: <kbd>Space</kbd> plays or stops the progression · <kbd>S</kbd> strums the neck · <kbd>1</kbd>–<kbd>7</kbd> play the chords of the key · in the progression builder, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>C</kbd> <kbd>X</kbd> <kbd>V</kbd> <kbd>D</kbd> copy, cut, paste and duplicate chords, <kbd>Delete</kbd> removes them. Saved work lives in this browser; use Backup / transfer to move it. Sound starts after your first click.</p>
 </main>
@@ -782,6 +822,7 @@ button.tag.an-link{border:0;background:none;padding:0;cursor:pointer;text-align:
 <script src="genres.js"></script>
 <script src="patterns.js"></script>
 <script src="analyzer.js"></script>
+<script src="learn.js"></script>
 <script src="docs.js"></script>
 </body>
 </html>

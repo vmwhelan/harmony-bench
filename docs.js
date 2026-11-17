@@ -1021,7 +1021,7 @@ function upgradeShapes(){
 (function boot(){
   upgradeShapes();
   const h = (location.hash || '').slice(1);
-  if (h === 'scales' || h === 'chords' || h === 'song') S.tab = h;
+  if (h === 'scales' || h === 'chords' || h === 'song' || h === 'learn') S.tab = h;
   if (h === 'progression') S.tab = 'prog';
   // the header starts with the key of whatever is in front (the explore key, the progression, the song or the
   // section being edited), so the first render only reads keys and never writes the stored header key into a document

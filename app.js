@@ -1709,7 +1709,7 @@ function sched(e, t, dur){
 function renderTab(){
   // a switch between the progression, a song section and the song brings that document's key into the header
   if (W && ui.keyCtx !== undefined && keyCtx() !== ui.keyCtx){ renderAll(); return; }
-  ['scales','chords','prog','song'].forEach(t => {
+  ['scales','chords','prog','song','learn'].forEach(t => {
     $('#p-' + t).hidden = S.tab !== t;
     if (S.tab !== t) $('#p-' + t).innerHTML = '';
     $('#t-' + t).setAttribute('aria-selected', String(S.tab === t));
@@ -1717,6 +1717,7 @@ function renderTab(){
   if (S.tab === 'scales') renderScales();
   else if (S.tab === 'chords') renderLib();
   else if (S.tab === 'song') renderSong();
+  else if (S.tab === 'learn') renderLearn();
   else renderProg();
 }
 function refreshTabLight(){ if (S.tab !== 'prog') renderTab(); }
