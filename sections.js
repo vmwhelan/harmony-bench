@@ -39,40 +39,89 @@ function songSeq(){
   });
 }
 
-/* ---- Which document the header key belongs to ----
-   Song builder: the song's home key. Editing a section: that section's key. Anywhere else: the progression's. */
-const keyCtx = () => W.edit && partById(W.edit) ? 'part' : S.tab === 'song' ? 'song' : 'prog';
+/* ---- Which key the header shows ----
+   Scales, Chord library and Learn: the explore key (S.explore), which never changes a progression or a song.
+   Song builder: the song's home key. Editing a section: that section's key. Progression builder: the progression's. */
+const EXPLORE_TABS = ['scales', 'chords', 'learn'];
+const docCtx = () => W.edit && partById(W.edit) ? 'part' : S.tab === 'song' ? 'song' : 'prog';
+const keyCtx = () => EXPLORE_TABS.includes(S.tab) ? 'explore' : docCtx();
+// The key stored for a context (null if it has none yet)
+function ctxKey(ctx){
+  if (ctx === 'explore') return S.explore || null;
+  if (ctx === 'song') return W.song.key || null;
+  if (ctx === 'part'){ const p = partById(W.edit); return p ? secKey(p) : null; }
+  return W.prog.keyAt || null;
+}
+// The key of the document open in the builders (the section being edited, or the progression; on the Song tab, the song)
+const docKey = () => ctxKey(docCtx()) || keyNow();
+function ctxLabel(ctx = keyCtx()){
+  if (ctx === 'explore') return 'Explore key';
+  if (ctx === 'song') return 'Song key';
+  if (ctx === 'part'){ const p = partById(W.edit); return `Section key: ${p ? p.name : ''}`; }
+  return 'Progression key';
+}
+// "your progression “C Major Progression”" / "the section “Verse”" / "your song “…”"
+function docLabel(ctx = docCtx()){
+  if (ctx === 'part'){ const p = partById(W.edit); return `the section “${esc(p ? p.name : '')}”`; }
+  if (ctx === 'song') return `your song “${esc(W.song.name)}”`;
+  refreshAutoName();
+  return `your progression “${esc(W.prog.name)}”`;
+}
 function ensureSongKeys(){
   if (!W.song.key) W.song.key = clone(W.prog.keyAt || keyNow());
   W.song.parts.forEach(p => { if (!p.key) p.key = clone(W.song.key); });
+}
+// Put a context's key into the header (when that context comes to the front)
+function loadCtxKey(ctx){
+  const k = ctxKey(ctx);
+  if (!k || sameKey(k, keyNow())) return;
+  const from = keyNow();
+  S.keyPc = k.pc; S.scale = k.scale; computeKey();
+  keyLog({ where: ctxLabel(ctx), doc: ctx === 'explore' ? '' : ctx === 'song' ? W.song.name : ctx === 'part' ? (W.song.name || '') : W.prog.name, from, to: k, chords: 'n/a', view: true, cause: ui.keyCause || 'tab' });
 }
 // Called from renderAll, after any key change or switch of tab
 function syncKeys(){
   if (!W) return;
   ensureSongKeys();
-  const ctx = keyCtx(), prev = ui.keyCtx;
-  if (ctx !== prev){
+  if (!W.prog.keyAt) W.prog.keyAt = keyNow();
+  if (!S.explore) S.explore = keyNow();
+  const ctx = keyCtx();
+  if (ctx !== ui.keyCtx){
+    // a different document (or the explore key) is in front now: show its key, change nothing
     ui.keyCtx = ctx;
-    if (prev !== undefined){
-      // a different document is in front now: show its key
-      const k = ctx === 'song' ? W.song.key : ctx === 'part' ? partById(W.edit).key : W.prog.keyAt;
-      if (k && !sameKey(k, keyNow())){ S.keyPc = k.pc; S.scale = k.scale; computeKey(); }
-      return;
+    loadCtxKey(ctx);
+    return;
+  }
+  if (ctx === 'explore'){ if (!sameKey(S.explore, keyNow())){ S.explore = keyNow(); save(); } }
+  else if (ctx === 'prog') keyGuard();
+  else if (ctx === 'part'){
+    const p = partById(W.edit), now = keyNow();
+    if (!sameKey(p.key, now)){
+      const from = clone(p.key);
+      p.key = now;
+      keyLog({ where: ctxLabel('part'), doc: W.song.name, from, to: now, chords: 'moved' });
+      save();
     }
   }
-  if (ctx === 'prog') keyGuard();
-  else if (ctx === 'part') partById(W.edit).key = keyNow();
   else songKeyChanged();
 }
 function songKeyChanged(){
   const old = W.song.key, now = keyNow();
   if (sameKey(old, now)) return;
+  const moved = [];
   if (W.song.follow){
     const d = now.pc - old.pc;
-    W.song.parts.forEach(p => { p.key = { pc: mod(p.key.pc + d), scale: p.key.scale === old.scale ? now.scale : p.key.scale }; });
+    W.song.parts.forEach(p => {
+      const from = clone(p.key);
+      p.key = { pc: mod(p.key.pc + d), scale: p.key.scale === old.scale ? now.scale : p.key.scale };
+      if (!sameKey(from, p.key)){ moved.push(p); keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from, to: p.key, chords: 'moved', cause: 'follow' }); }
+    });
   }
+  const from = clone(old), cause = ui.keyCause;
   W.song.key = clone(now);
+  keyLog({ where: 'Song key', doc: W.song.name, from, to: now, chords: moved.length ? `${moved.length} section${moved.length > 1 ? 's' : ''} moved` : 'sections kept their keys' });
   save();
+  if (cause === 'header') toast(`The song's home key is now ${esc(keyName(now))}${moved.length ? `; ${moved.length} section${moved.length > 1 ? 's' : ''} moved with it` : '; the sections kept their own keys'}.`, { label: 'Undo', fn: () => { S.keyPc = from.pc; S.scale = from.scale; renderAll(); } });
 }
 const offKey = p => !sameKey(secKey(p), W.song.key) && !p.keyOk;
 // Custom guitar shapes slide along with the chords when a section moves by d semitones
@@ -96,9 +145,10 @@ function partCenter(p){
 }
 // Re-label a section in another key: its chords and voicings stay exactly as they are
 function rekeyPart(p, pc, scale){
-  const keep = inSection(p, () => keepItems(p.items));
+  const keep = inSection(p, () => keepItems(p.items)), from = clone(secKey(p));
   p.key = { pc, scale }; p.keyOk = !sameKey(p.key, W.song.key);
   inSection(p, () => relabelItems(p.items, keep));
+  if (!sameKey(from, p.key)) keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from, to: p.key, chords: 'kept (re-labelled)' });
 }
 // Where the whole song (in arrangement order) feels at home, judged in the song key
 function songCenter(){
@@ -128,6 +178,8 @@ function songAnalysisHTML(){
 }
 // Move a section to another key: 'move' keeps the Roman numerals (the chords change), 'keep' keeps the chords
 function setPartKey(p, k, how){
+  const from = clone(secKey(p));
+  if (!sameKey(from, k)) keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from, to: k, chords: how === 'keep' ? 'kept (re-labelled)' : 'moved' });
   if (how === 'keep'){
     const abs = inSection(p, () => p.items.map(absFromItem));
     p.key = clone(k);
@@ -276,6 +328,7 @@ function voicedPath(A, chords, B){
 }
 function liftLast(x, k){
   const c = { ...clone(x.p), id: uid(), name: newPartName(`${x.p.name} (up a step)`), key: clone(k), keyOk: true };
+  keyLog({ where: `Section key: ${c.name}`, doc: W.song.name, from: secKey(x.p), to: k, chords: 'new copy, moved' });
   slideShapes(c.items, 2);
   W.song.parts.splice(W.song.parts.indexOf(x.p) + 1, 0, c);
   W.song.order[x.o] = c.id;
@@ -394,6 +447,7 @@ function sectionLinksHTML(p, chs){
 Object.assign(ACT, {
   partRecenter: el => {
     const p = partById(el.dataset.arg); if (!p) return;
+    keyWhy('partRecenter');
     const old = clone(secKey(p)), was = p.keyOk;
     rekeyPart(p, +el.dataset.pc, el.dataset.scale);
     save(); renderSong();
@@ -402,37 +456,44 @@ Object.assign(ACT, {
   songRecenter: el => {
     const old = clone(W.song.key), nk = { pc: +el.dataset.pc, scale: el.dataset.scale };
     const moved = W.song.parts.filter(p => sameKey(secKey(p), old));
+    keyWhy('songRecenter');
     moved.forEach(p => rekeyPart(p, nk.pc, nk.scale));
+    keyLog({ where: 'Song key', doc: W.song.name, from: old, to: nk, chords: 'kept (re-labelled)' });
     W.song.key = clone(nk); moved.forEach(p => { p.keyOk = false; });
     S.keyPc = nk.pc; S.scale = nk.scale; computeKey();
     save(); renderAll();
-    toast(`The song is now in ${esc(keyName(nk))}. Same chords.`, { label: 'Undo', fn: () => { moved.forEach(p => rekeyPart(p, old.pc, old.scale)); W.song.key = clone(old); moved.forEach(p => { p.keyOk = false; }); S.keyPc = old.pc; S.scale = old.scale; computeKey(); save(); renderAll(); } });
+    toast(`The song is now in ${esc(keyName(nk))}. Same chords.`, { label: 'Undo', fn: () => { moved.forEach(p => rekeyPart(p, old.pc, old.scale)); keyLog({ where: 'Song key', doc: W.song.name, from: W.song.key, to: old, chords: 'kept (re-labelled)' }); W.song.key = clone(old); moved.forEach(p => { p.keyOk = false; }); S.keyPc = old.pc; S.scale = old.scale; computeKey(); save(); renderAll(); } });
   },
-  pkeyMatch: el => { const p = partById(el.dataset.arg); if (!p) return; setPartKey(p, W.song.key, 'move'); p.keyOk = false; save(); renderSong(); },
+  pkeyMatch: el => { const p = partById(el.dataset.arg); if (!p) return; keyWhy('match'); setPartKey(p, W.song.key, 'move'); p.keyOk = false; save(); renderSong(); },
   pkeyOk: el => { const p = partById(el.dataset.arg); if (!p) return; p.keyOk = true; save(); renderSong(); },
   pkeyGo: el => {
     const m = ui.keyMove; closeModal(); if (!m) return;
     const p = partById(m.id); if (!p) return;
-    setPartKey(p, m.key, el.dataset.arg); save(); renderSong();
+    keyWhy('section'); setPartKey(p, m.key, el.dataset.arg); save(); renderSong();
   },
   songShift: el => {
     const d = +el.dataset.d;
-    W.song.parts.forEach(p => { p.key = { pc: mod(secKey(p).pc + d), scale: secKey(p).scale }; slideShapes(p.items, d); });
+    if (ui.keyCause !== 'undo') keyWhy('songShift');
+    W.song.parts.forEach(p => { const from = clone(secKey(p)); p.key = { pc: mod(from.pc + d), scale: from.scale }; slideShapes(p.items, d); keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from, to: p.key, chords: 'moved' }); });
+    const from = clone(W.song.key);
     W.song.key = { pc: mod(W.song.key.pc + d), scale: W.song.key.scale };
-    S.keyPc = W.song.key.pc; save(); renderAll();
+    keyLog({ where: 'Song key', doc: W.song.name, from, to: W.song.key, chords: 'moved (whole song)' });
+    S.keyPc = W.song.key.pc; S.scale = W.song.key.scale; save(); renderAll();
+    toast(`Moved the whole song ${d > 0 ? 'up' : 'down'} a half step: it is now in ${esc(keyName(W.song.key))}.`, { label: 'Undo', fn: () => ACT.songShift({ dataset: { d: -d } }) });
   },
   ideaHear: el => { const d = ui.ideas[+el.dataset.i]; if (d && d.hear) previewSeq(d.from ? voicedPath(partById(d.from), d.hear, d.to !== 'home' ? partById(d.to) : null) : d.hear); },
   ideaDo: el => {
     const d = ui.ideas[+el.dataset.i]; if (!d || !d.apply) return;
     const before = clone({ parts: W.song.parts, order: W.song.order });
-    d.apply(); save(); renderTab();
-    toast(`${d.tag}: applied.`, { label: 'Undo', fn: () => { W.song.parts.forEach((p, i) => { const b = before.parts.find(x => x.id === p.id); if (b) p.items.splice(0, p.items.length, ...b.items); }); W.song.parts = W.song.parts.filter(p => before.parts.some(b => b.id === p.id)); W.song.order = before.order; save(); renderTab(); } });
+    keyWhy('idea'); d.apply(); save(); renderTab();
+    toast(`${d.tag}: applied.`, { label: 'Undo', fn: () => { W.song.parts.forEach((p, i) => { const b = before.parts.find(x => x.id === p.id); if (b){ p.items.splice(0, p.items.length, ...b.items); if (!sameKey(secKey(p), b.key)) keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from: secKey(p), to: b.key, chords: 'moved back' }); p.key = b.key; p.keyOk = b.keyOk; } }); W.song.parts = W.song.parts.filter(p => before.parts.some(b => b.id === p.id)); W.song.order = before.order; save(); renderTab(); } });
   },
   nkHear: el => { const x = ui.nextKeys[+el.dataset.i]; if (x) previewSeq(voicedPath(partById(ui.nextFrom), x.path, null)); },
   nkAdd: el => {
     const x = ui.nextKeys[+el.dataset.i]; if (!x) return;
     const from = partById(ui.nextFrom), p = addPart('Section', []);
     p.key = clone(x.k); p.keyOk = !sameKey(x.k, W.song.key); p.name = newPartName(`Section in ${keyName(x.k)}`);
+    keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from: null, to: x.k, chords: 'new section', cause: 'addSection' });
     p.items.push(inSection(p, () => toItem(tonicOf(x.k), S.defBeats)));
     save(); renderSong();
     toast(`Added “${esc(p.name)}”. Edit its chords to see how it follows ${esc(from.name)}; the ideas above now include the move into it.`);
@@ -460,7 +521,7 @@ document.addEventListener('change', e => {
   if (!p) return;
   if (t.classList.contains('pkPc') || t.classList.contains('pkSc')){
     const box = t.closest('.pkeys'), k = { pc: +box.querySelector('.pkPc').value, scale: box.querySelector('.pkSc').value };
-    if (!p.items.length){ p.key = k; p.keyOk = !sameKey(k, W.song.key); save(); renderSong(); return; }
+    if (!p.items.length){ keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from: secKey(p), to: k, chords: 'none yet', cause: 'section' }); p.key = k; p.keyOk = !sameKey(k, W.song.key); save(); renderSong(); return; }
     ui.keyMove = { id: p.id, key: k };
     openModal(`${esc(p.name)} in ${esc(keyName(k))}`, `<p>How should the chords of ${esc(p.name)} change?</p>
       <p class="hint"><b>Move the chords</b> transposes them: the Roman numerals stay the same (I–V–vi–IV in ${esc(keyName(secKey(p)))} becomes I–V–vi–IV in ${esc(keyName(k))}).<br><b>Keep the chords</b> leaves every chord as it is and only analyzes the section in the new key.</p>`,
@@ -475,3 +536,103 @@ document.addEventListener('change', e => {
     p.bpm = v >= 30 && v <= 300 && v !== S.bpm ? v : null; save(); renderSong();
   }
 });
+
+/* ================= Key-change log =================
+   Every change of a document's key (and every time the header shows a different key) is written to a small log in
+   this browser (the last 300), with what caused it. Not part of the library, so it is not synced or backed up.
+   keyWhy(cause) is called by each action that can change a key, just before it does; the cause lasts until the
+   current click or change is handled. A change with no cause is logged as "unexplained" and highlighted. */
+const KEYLOG_KEY = 'harmony-bench-keylog', KEYLOG_MAX = 300;
+const KEY_CAUSES = {
+  header: 'Header key or scale menu', compare: 'Scales tab: a row of the compare table', transpose: 'Transpose − / +',
+  recenter: '“Analyze in …” (same chords)', preset: 'Loaded a classic progression', open: 'Opened a saved document',
+  tab: 'Switched tabs or documents (the header shows that one’s key)', follow: '“Keep every section in the song key” moved it with the song',
+  section: 'Section key menu', match: '“Match to the song key”', songShift: 'Whole song − / +', undo: 'Undo',
+  useKey: '“Use this key in my progression…”', exploreSync: '“Use the progression’s key”', new: 'New document',
+  addSection: 'Added a section', idea: 'Applied a key-change idea', boot: 'App start', songRecenter: '“Analyze the song in …”',
+  partRecenter: '“Analyze in …” on a section', learn: 'Learn tab', unexplained: 'Unexplained',
+};
+function keyWhy(cause){
+  ui.keyCause = cause;
+  // the cause covers everything this click or change does, and nothing after it
+  queueMicrotask(() => { if (ui.keyCause === cause) ui.keyCause = null; });
+}
+function keyLogRead(){
+  try { const a = JSON.parse(localStorage.getItem(KEYLOG_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function keyLog(e){
+  const list = keyLogRead();
+  list.push({ t: Date.now(), where: e.where, doc: e.doc || '', from: e.from ? keyName(e.from) : null, to: e.to ? keyName(e.to) : null,
+    chords: e.chords || 'n/a', view: !!e.view, cause: e.cause || ui.keyCause || 'unexplained' });
+  while (list.length > KEYLOG_MAX) list.shift();
+  try { localStorage.setItem(KEYLOG_KEY, JSON.stringify(list)); } catch (err) {}
+}
+const fmtLogTime = t => { const d = new Date(t); return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`; };
+const logLine = x => `${fmtLogTime(x.t)} · ${x.where}${x.doc ? ` (${x.doc})` : ''}: ${x.from || '—'} → ${x.to || '—'} · chords: ${x.chords} · cause: ${KEY_CAUSES[x.cause] || x.cause}`;
+function keyHistHTML(){
+  const docOnly = !!ui.keyHistDoc, all = keyLogRead().reverse(), list = docOnly ? all.filter(x => !x.view && x.where !== 'Explore key') : all;
+  const bad = all.filter(x => x.cause === 'unexplained').length;
+  const rows = list.map(x => `<div class="kl-row${x.cause === 'unexplained' ? ' kl-bad' : ''}${x.view ? ' kl-view' : ''}"><span class="kl-t mono">${esc(fmtLogTime(x.t))}</span><span class="kl-w"><b>${esc(x.where)}</b>${x.doc ? ` <span class="muted">${esc(x.doc)}</span>` : ''}</span><span class="kl-k mono">${esc(x.from || '—')} → <b>${esc(x.to || '—')}</b></span><span class="kl-c">${x.view ? 'shown in the header, nothing changed' : `chords: ${esc(x.chords)}`}</span><span class="kl-why${x.cause === 'unexplained' ? ' alt' : ''}">${esc(KEY_CAUSES[x.cause] || x.cause)}</span></div>`).join('');
+  return `<p class="hint">Every key change, newest first: which key changed, from what to what, what happened to the chords, and what caused it. Kept in this browser only (the last ${KEYLOG_MAX}).${bad ? ` <b style="color:var(--root)">${bad} change${bad > 1 ? 's have' : ' has'} no known cause</b> (highlighted): please mention ${bad > 1 ? 'them' : 'it'} if you report a key that changed by itself.` : ''}</p>
+    <label class="chk"><input type="checkbox" id="klDoc"${docOnly ? ' checked' : ''}> Only changes to a progression, song or section key</label>
+    <div class="kl-list">${rows || '<p class="muted">Nothing logged yet.</p>'}</div>`;
+}
+function openKeyHist(){
+  openModal('Key history', keyHistHTML(), [{ label: 'Clear', act: 'keyHistClear' }, { label: 'Copy as text', act: 'keyHistCopy' }, { label: 'Close', act: 'modalClose', primary: true }]);
+}
+
+/* ---- The explore key on Scales, Chord library and Learn ----
+   When it differs from the open document's key: copy the document's key in, or use this key in the document
+   (keeping its chords, or moving them). */
+function exploreBannerHTML(){
+  if (keyCtx() !== 'explore') return '';
+  const dk = docKey(), ctx = docCtx(), what = ctx === 'part' ? 'section' : 'progression';
+  if (sameKey(dk, keyNow())) return `<p class="hint explore-note">Exploring <b>${esc(K.name)}</b>, the same key as ${docLabel()}. Changing the key on this tab never changes ${what === 'section' ? 'the section' : 'your progression'}.</p>`;
+  return `<div class="banner soft explore"><span>You are exploring <b>${esc(K.name)}</b>. ${docLabel()[0].toUpperCase() + docLabel().slice(1)} is in <b>${esc(keyName(dk))}</b> and stays there: changing the key on this tab never changes it.</span>
+    <span class="acts"><button class="btn sm" data-act="exploreSync">Use the ${what}'s key</button><button class="btn sm primary" data-act="exploreApply">Use this key in my ${what}…</button></span></div>`;
+}
+// The progression (or the section being edited) moves to key k: 'keep' keeps every chord, 'move' transposes them
+function docSetKey(k, how){
+  const ctx = docCtx();
+  if (ctx === 'part'){ const p = partById(W.edit); setPartKey(p, k, how); return; }
+  const d = W.prog, from = clone(d.keyAt);
+  if (sameKey(from, k)) return;
+  if (how === 'keep'){
+    const keep = inSection({ key: from }, () => keepItems(d.items));
+    inSection({ key: k }, () => relabelItems(d.items, keep));
+    d.keyAt = clone(k);
+    keyLog({ where: 'Progression key', doc: d.name, from, to: k, chords: 'kept (re-labelled)' });
+  } else {
+    slideShapes(d.items, mod(k.pc - from.pc + 6) - 6);
+    progKeyTo(k);
+  }
+}
+Object.assign(ACT, {
+  keyHist: () => openKeyHist(),
+  keyHistClear: () => { try { localStorage.removeItem(KEYLOG_KEY); } catch (e) {} openKeyHist(); },
+  keyHistCopy: () => {
+    const txt = keyLogRead().reverse().map(logLine).join('\n') || '(empty)', ok = copyToSystem(txt);
+    openModal('Key history as text', `<p class="hint">${ok ? 'Copied to your clipboard. ' : 'Select the text below and copy it (Ctrl+C / Cmd+C). '}</p><textarea id="copyBox" rows="14" class="mono" readonly>${esc(txt)}</textarea>`, [{ label: 'Back', act: 'keyHist' }, { label: 'Done', act: 'modalClose', primary: true }]);
+    setTimeout(() => { const t = $('#copyBox'); if (t){ t.focus(); t.select(); } }, 40);
+  },
+  exploreSync: () => { keyWhy('exploreSync'); const k = docKey(); S.keyPc = k.pc; S.scale = k.scale; ui.focus = null; renderAll(); },
+  exploreApply: () => {
+    const k = keyNow(), ctx = docCtx(), items = ctx === 'part' ? partById(W.edit).items : W.prog.items, what = ctx === 'part' ? 'section' : 'progression';
+    ui.exploreTo = k;
+    if (!items.length){ ACT.exploreApplyGo({ dataset: { arg: 'move' } }); return; }
+    const dk = docKey(), sample = inSection({ key: dk }, () => items.slice(0, 4).map(it => fromItem(it).symbol)).join(' – ');
+    const movedSyms = inSection({ key: k }, () => items.slice(0, 4).map(it => fromItem(it).symbol)).join(' – ');
+    openModal(`Use ${esc(K.name)} in ${docLabel()}`, `<p>${docLabel()[0].toUpperCase() + docLabel().slice(1)} is in ${esc(keyName(dk))}. What should happen to its chords?</p>
+      <p class="hint"><b>Keep my chords</b>: every chord stays exactly as it is (${esc(sample)}${items.length > 4 ? ' …' : ''}); they are just analyzed in ${esc(K.name)}, so their Roman numerals change.<br><b>Move my chords</b>: the chords are transposed so they keep their Roman numerals (${esc(sample)} becomes ${esc(movedSyms)}${items.length > 4 ? ' …' : ''}).${ctx === 'prog' && W.prog.id ? ` Moving the chords of a saved progression makes it a new, unsaved one; the saved one stays as it was.` : ''}</p>`,
+      [{ label: 'Cancel', act: 'modalClose' }, { label: 'Keep my chords', act: 'exploreApplyGo', arg: 'keep' }, { label: 'Move my chords', act: 'exploreApplyGo', arg: 'move', primary: true }]);
+  },
+  exploreApplyGo: el => {
+    const k = ui.exploreTo; closeModal(); if (!k) return;
+    keyWhy('useKey');
+    const what = docCtx() === 'part' ? 'section' : 'progression';
+    docSetKey(k, el.dataset.arg);
+    save(); renderAll();
+    toast(`Your ${what} is now in ${esc(keyName(k))}${el.dataset.arg === 'keep' ? ' (same chords)' : ' (chords moved)'}.`);
+  },
+});
+document.addEventListener('change', e => { if (e.target.id === 'klDoc'){ ui.keyHistDoc = e.target.checked; openKeyHist(); } });

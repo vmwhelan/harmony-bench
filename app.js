@@ -29,7 +29,9 @@ const SUSTAIN = { short: { ring: 0.3, chord: 0.7, name: 'Short' }, medium: { rin
 const chordLen = () => SUSTAIN[S.ring].chord;
 
 /* ================= State ================= */
-const DEF = { keyPc: 0, scale: 'harmonic', inst: 'guitar', tun: {}, capo: {}, shape: {}, piano: [48, 60, 63, 67], showPiano: true,
+// keyPc/scale: the key in the header. explore: the key of the Scales, Chord library and Learn tabs, which never
+// changes a progression or a song (null until first used: it starts as the key in the header)
+const DEF = { keyPc: 0, scale: 'harmonic', explore: null, inst: 'guitar', tun: {}, capo: {}, shape: {}, piano: [48, 60, 63, 67], showPiano: true,
   clickMode: 'place', labels: 'interval', overlay: 'scale', tab: 'scales', ext7: false, cmp: 'roots',
   lib: { root: 0, q: 'm', bass: null, inv: false }, snd: {}, frets: 15, ring: 'medium', pinPanel: false, fretNums: 'actual', progCharts: false, shapes: { sys: 'all', deg: 0, str: 0, caged: 'E', slide: 0 }, showNext: true,
   countIn: false, muteChords: false, trainer: { on: false, step: 2, every: 2, target: 120 }, band: { drums: 'off', bass: false, vol: 0.8 },
@@ -44,6 +46,7 @@ let S, prog, W;
   try { saved = JSON.parse(localStorage.getItem('harmony-bench-v1') || 'null'); } catch (e) {}
   S = Object.assign(JSON.parse(JSON.stringify(DEF)), saved && saved.s ? saved.s : {});
   if (!SC[S.scale]) S.scale = 'harmonic';
+  if (S.explore && !(SC[S.explore.scale] && S.explore.pc >= 0 && S.explore.pc < 12)) S.explore = null;
   if (!INST[S.inst]) S.inst = 'guitar';
   S.lib = Object.assign({}, DEF.lib, S.lib || {});
   if (!QMAP[S.lib.q]) S.lib.q = 'm';
@@ -431,6 +434,8 @@ function toast(msg, action){
 
 /* ================= Header ================= */
 function renderHeader(){
+  const kl = $('#keyLbl');
+  if (kl && W){ const t = ctxLabel(); kl.textContent = t; kl.title = keyCtx() === 'explore' ? 'The key for exploring scales and chords: changing it never changes your progression or song' : `Changing this key changes ${t.toLowerCase().startsWith('section') ? 'the section being edited' : t === 'Song key' ? 'the song' : 'the progression'}`; }
   const kr = $('#keyRoot');
   kr.innerHTML = Array.from({ length: 12 }, (_, pc) => {
     const l = chooseLetter(pc, SC[S.scale].degs);
@@ -798,7 +803,7 @@ function renderScales(){
     }).join('') + '</tbody></table>';
   }
 
-  el.innerHTML = `
+  el.innerHTML = `${exploreBannerHTML()}
   <div class="sc-title"><span class="lbl">Scale</span><h2>${K.name.replace(sc.short, sc.name)}</h2><p class="hint">${sc.blurb}</p>${rel ? `<p class="hint">${rel}</p>` : ''}</div>
   <div class="sec"><div class="sec-h"><h3>Notes and steps</h3><span class="mono muted" style="font-size:12.5px">${pattern}</span></div>
     <div class="scnotes">${notes}</div>
@@ -872,7 +877,7 @@ function renderLib(){
     }).join('') + '</div>';
   }
   const bassOpts = `<option value="">Root in the bass</option>` + Array.from({ length: 12 }, (_, pc) => pc === S.lib.root ? '' : `<option value="${pc}"${S.lib.bass === pc ? ' selected' : ''}>Slash: /${nameFor(pc)}</option>`).join('');
-  el.innerHTML = `
+  el.innerHTML = `${exploreBannerHTML()}
   <div class="libtop"><div class="sec-h"><h2>Chord library</h2><p class="hint">Pick a root and any of ${QLIST.length} chord types; for a slash chord, choose its <b>Bass note</b>. Roots underlined in red are in ${K.name}; a red dot marks chord types that fit the scale on that root.</p></div>
     <div class="roots">${roots}</div><div class="qgroups">${groups}</div></div>
   <div class="libmain">
@@ -1267,12 +1272,13 @@ function relabelItems(items, keep){
 }
 const keepItems = items => items.map(it => ({ a: absFromItem(it), vos: vosOf(it), pv: it.pv }));
 function rekeyKeepingChords(pc, scale){
-  const keep = keepItems(prog);
+  const keep = keepItems(prog), from = keyNow();
   S.keyPc = pc; S.scale = scale; computeKey();
   relabelItems(prog, keep);
   const part = W.edit && partById(W.edit);
   if (part){ part.key = keyNow(); part.keyOk = !sameKey(part.key, W.song.key); }
   else W.prog.keyAt = keyNow();   // the same chords: still the same (saved) progression
+  if (!sameKey(from, keyNow())) keyLog({ where: ctxLabel(part ? 'part' : 'prog'), doc: part ? W.song.name : W.prog.name, from, to: keyNow(), chords: 'kept (re-labelled)' });
   ui.focus = null; save(); renderAll();
 }
 function summary(chs, items = prog){
@@ -1545,7 +1551,8 @@ function tick(){
     // a section's own tempo follows the speed trainer in proportion; each section starts on a downbeat
     const sc = S.bpm / (PB.startBpm || S.bpm), bpm = e.sec && e.sec.bpm ? e.sec.bpm * sc : S.bpm, dur = e.it.b * 60 / bpm;
     if (e.sec && e.i === 0) PB.beat = 0;
-    inSection(e.sec, () => sched(e, PB.t, dur), sc);
+    // a progression always plays in its own key, even while the header shows the explore key
+    inSection(e.sec || (PB.mode === 'prog' ? { key: docKey() } : null), () => sched(e, PB.t, dur), sc);
     PB.t += dur; PB.beat += e.it.b; PB.n++;
   }
   if (!S.loop && PB.n >= PB.seq.length && ctx.currentTime > PB.t + 0.1){ pbStop(); return; }
@@ -1703,11 +1710,31 @@ function renderAll(){ computeKey(); syncKeys(); renderHeader(); renderInstrument
 // chords are always added at the end of the progression (pasting is the one thing that goes after the selection)
 function addToProg(ch, after = prog.length - 1){
   const at = prog.length ? Math.min(prog.length, after + 1) : 0;
-  prog.splice(at, 0, toItem(ch, S.defBeats));
+  // chords are stored relative to the document's key (on Scales or the Chord library the header shows the explore key)
+  prog.splice(at, 0, inSection({ key: docKey() }, () => toItem(ch, S.defBeats)));
   ui.selSlot = at;
   save();
   if (S.tab === 'prog') renderProg();
   toast(`Added ${ch.symbol} to the progression.`, S.tab === 'prog' ? null : { label: 'View', fn: () => { S.tab = 'prog'; renderTab(); } });
+}
+
+// Load a classic progression into the builder (optionally in its own scale); Undo puts back the chords, the key
+// and, for a saved progression that became a new one, the saved one
+function loadPreset(p, useScale){
+  const old = prog.slice(), oldKey = keyNow(), wasDoc = W.edit ? null : { id: W.prog.id, created: W.prog.created, updated: W.prog.updated, saved: W.prog.saved, autoName: W.prog.autoName, name: W.prog.name };
+  if (PB.on) pbStop();
+  keyWhy('preset');
+  if (useScale) S.scale = p[1];
+  computeKey();
+  setProg(p[2].map(([s, l, q, b]) => ({ s, l, q, b: Math.max(1, Math.round((b || 4) * S.ts.num / 4)) })));
+  ui.selSlot = 0;
+  renderAll();
+  toast(`Loaded ${p[0]} in ${K.name}.`, { label: 'Undo', fn: () => {
+    setProg(old);
+    if (!sameKey(oldKey, keyNow())){ S.keyPc = oldKey.pc; S.scale = oldKey.scale; renderAll(); }
+    if (wasDoc) Object.assign(W.prog, wasDoc);
+    save(); renderAll();
+  } });
 }
 
 /* ================= Events ================= */
@@ -1715,7 +1742,10 @@ const ACT = {
   tab: el => {
     // if the tabs are stuck at the top, show the new tab from its beginning, right under them
     const stuck = tabsNatural() < tabsStuckTop() - 1;
-    S.tab = el.dataset.tab; renderAll();
+    // the Song tab shows the song, so a section being edited is closed (as with "Back to the song")
+    if (el.dataset.tab === 'song' && W.edit){ if (PB.on) pbStop(); leavePart(); prog = W.prog.items; }
+    keyWhy('tab');
+    S.tab = el.dataset.tab; save(); renderAll();
     if (stuck) showTabTop();
   },
   tune: el => {
@@ -1773,10 +1803,11 @@ const ACT = {
     }, (0.05 + i * 0.28) * 1000));
   },
   scCard: el => { playChord(ui.scCards[+el.dataset.i]); renderScales(); },
+  presetGo: el => { const p = ui.presetPending; closeModal(); if (p) loadPreset(p, el.dataset.arg === 'scale'); },
   scAdd: el => addToProg(ui.scCards[+el.dataset.i], prog.length - 1),
   fit: el => { playChord(ui.fits[+el.dataset.i]); renderScales(); },
-  cmpRoot: el => { S.keyPc = +el.dataset.pc; ui.focus = null; renderAll(); },
-  cmpScale: el => { S.scale = el.dataset.id; ui.focus = null; renderAll(); },
+  cmpRoot: el => { keyWhy('compare'); S.keyPc = +el.dataset.pc; ui.focus = null; renderAll(); },
+  cmpScale: el => { keyWhy('compare'); S.scale = el.dataset.id; ui.focus = null; renderAll(); },
   libRoot: el => { S.lib.root = +el.dataset.pc; S.lib.bass = null; const ch = libChord(); playChord(ch); renderLib(); },
   libQ: el => { S.lib.q = el.dataset.q; const ch = libChord(); playChord(ch); renderLib(); },
   libPlay: () => { playChord(libChord()); renderLib(); },
@@ -1806,6 +1837,7 @@ const ACT = {
   },
   recenter: el => {
     const old = { pc: S.keyPc, scale: S.scale };
+    keyWhy('recenter');
     rekeyKeepingChords(+el.dataset.pc, el.dataset.scale);
     toast(`Now analyzing in ${K.name}. Same chords, same notes.`, { label: 'Undo', fn: () => rekeyKeepingChords(old.pc, old.scale) });
   },
@@ -1821,14 +1853,16 @@ const ACT = {
     renderProg();
   },
   transpose: el => {
-    const d = +el.dataset.d;
+    const d = +el.dataset.d, savedId = !W.edit && W.prog.id;
+    keyWhy('transpose');
     S.keyPc = mod(S.keyPc + d);
     // keep custom shapes in the same area of the neck: slide them by the same amount
     slideShapes(prog, d);
     ui.focus = null;
     renderAll();
     if (!PB.on && prog[ui.selSlot]) playItem(ui.selSlot);
-    toast(`Transposed to ${K.name}.`);
+    // a saved progression that became a new one already says so (with Undo)
+    if (!(savedId && !W.prog.id)) toast(`Transposed to ${K.name}.`, { label: 'Undo', fn: () => ACT.transpose({ dataset: { d: -d } }) });
   },
   mv: el => {
     const i = +el.dataset.i, j = i + +el.dataset.d;
@@ -1867,7 +1901,7 @@ const ACT = {
     setProg([]); ui.selSlot = 0; ui.selEnd = 0; renderProg();
     toast('Progression cleared.', { label: 'Undo', fn: () => { setProg(old); renderProg(); } });
   },
-  toastAct: () => { const f = ui.toastAct; $('#toast').hidden = true; if (f) f(); },
+  toastAct: () => { const f = ui.toastAct; $('#toast').hidden = true; keyWhy('undo'); if (f) f(); },
 };
 document.addEventListener('click', e => {
   const segB = e.target.closest('.seg button');
@@ -1889,8 +1923,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
-  if (t.id === 'keyRoot'){ S.keyPc = +t.value; if (PB.on) pbStop(); ui.focus = null; renderAll(); }
-  else if (t.id === 'keyScale'){ S.scale = t.value; ui.focus = null; renderAll(); }
+  if (t.id === 'keyRoot'){ keyWhy('header'); S.keyPc = +t.value; if (PB.on && keyCtx() !== 'explore') pbStop(); ui.focus = null; renderAll(); }
+  else if (t.id === 'keyScale'){ keyWhy('header'); S.scale = t.value; ui.focus = null; renderAll(); }
   else if (t.id === 'inst'){ if (PB.on) pbStop(); S.inst = t.value; ui.focus = null; renderAll(); }
   else if (t.id === 'tunPreset' && t.value === '__save'){ renderTools(); ACT.tunSave(); }
   else if (t.id === 'tunPreset' && t.value === '__manage'){ renderTools(); ACT.tunManage(); }
@@ -1922,14 +1956,17 @@ document.addEventListener('change', e => {
   else if (t.id === 'smooth'){ S.smooth = t.checked; save(); if (S.progCharts) renderProg(); }
   else if (t.id === 'bpmN' || t.id === 'bpmR'){ S.bpm = clamp(+t.value || 90, 30, 300); save(); renderTab(); }
   else if (t.id === 'preset' && t.value !== ''){
-    const p = t.value[0] === 'g' ? GENRE().presets[+t.value.slice(1)] : PRESETS[+t.value], old = prog.slice();
-    if (PB.on) pbStop();
-    S.scale = p[1];
-    computeKey();
-    setProg(p[2].map(([s, l, q, b]) => ({ s, l, q, b: Math.max(1, Math.round((b || 4) * S.ts.num / 4)) })));
-    ui.selSlot = 0;
-    renderAll();
-    toast(`Loaded ${p[0]} in ${K.name}.`, { label: 'Undo', fn: () => { setProg(old); renderProg(); } });
+    const p = t.value[0] === 'g' ? GENRE().presets[+t.value.slice(1)] : PRESETS[+t.value];
+    // a song section keeps its scale unless you say otherwise
+    if (W.edit && p[1] !== S.scale){
+      ui.presetPending = p;
+      const part = partById(W.edit);
+      openModal(`Load “${esc(p[0])}”`, `<p>This classic is written in ${esc(SC[p[1]].name)}; the section “${esc(part ? part.name : '')}” is in ${esc(K.name)}.</p><p class="hint"><b>Keep ${esc(K.name)}</b>: the same chords, analyzed in the section's key. <b>Change the scale</b>: the section's key becomes ${esc(makeKey(K.pc, p[1]).name)}.</p>`,
+        [{ label: 'Cancel', act: 'modalClose' }, { label: `Keep ${esc(K.name)}`, act: 'presetGo', arg: 'keep' }, { label: `Change to ${esc(makeKey(K.pc, p[1]).name)}`, act: 'presetGo', arg: 'scale', primary: true }]);
+      t.value = '';
+      return;
+    }
+    loadPreset(p, true);
   }
 });
 document.addEventListener('input', e => {

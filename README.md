@@ -214,9 +214,20 @@ Click **MIDI keyboard** above the neck. Works in Chrome, Edge, Opera and Firefox
 - The chord you hold is named, shown on the keyboard, and highlighted on the neck (with Highlight set to Chord or Solo).
 - **+ Add the last chord** adds it to the progression, after the selected chord. Turn on **Add each chord I play to the progression** to build a progression just by playing chords one after another.
 
+## Which key is which (and the key history)
+
+The header's key always says whose key it is, in the small label above it:
+
+- **Explore key** on the **Scales & modes** and **Chord library** tabs. It is only for exploring: changing it (with the header menus or the rows of the Compare table) never changes your progression or song. If it differs from what you are working on, a note at the top of the tab offers **Use the progression's key** (copy it into the explore key) and **Use this key in my progression…**, which asks whether to *keep my chords* (same chords, analyzed in the new key) or *move my chords* (transpose them). Adding a chord from these tabs adds it as you see it, in your progression's own key.
+- **Progression key** on the Progression builder, **Song key** on the Song builder, and **Section key: Verse** (for example) while you edit a section's chords.
+- Clicking the **Song builder** tab while editing a section closes the section (like **Back to the song**), so the header shows the song's key again.
+- A new progression or song starts in the key you were working in. Opening a saved song always uses the song's own key and its sections' keys.
+- When the progression's key changes from the header menu, a message says so, with **Undo** (also for a saved progression that becomes a new one). **Whole song − / +** and loading a classic progression have Undo too, and Undo also puts the key back.
+- **🕘 Key history** (next to the key) lists every key change, newest first: which key changed (progression, song, a section, or the explore key), from what to what, what happened to the chords (moved, or kept and re-labelled), and what caused it (the header menu, Transpose, Analyze in…, opening a document, Undo…). Tick *Only changes to a progression, song or section key* to hide the rest. A change with no known cause is highlighted: if a key ever seems to change by itself, **Copy as text** and send that along. The history is kept in this browser only (the last 300 changes) and is not part of backups.
+
 ## Keys in the Song builder
 
-- The key in the header belongs to whatever you are working on: the **progression** (Progression builder and the other tabs), the **song's home key** (Song builder), or a **section** while you edit its chords. Switching tabs never changes the other one's chords.
+- The key in the header belongs to whatever you are working on: the **progression** (Progression builder), the **song's home key** (Song builder), or a **section** while you edit its chords; the Scales and Chord library tabs have their own explore key (see above). Switching tabs never changes anyone's chords.
 - Each section has its own **Key**, **Time** (time signature) and **Tempo** fields. Changing a section's key asks whether to *move the chords* (transpose, same Roman numerals) or *keep the chords* (only analyze them in the new key). Empty Time/Tempo means the song's.
 - **Keep every section in the song key**: when on, changing the header key moves every section with it. When off (the default), sections keep their keys, and any section not in the song key is marked in red with **Match to …** (move it into the song key) and **Keep …** (it's a deliberate key change).
 - **Playing from anywhere**: click a section's name in the Arrangement to start the song there (it's outlined), then Play; double-click Play to start at the beginning. While the song plays, clicking a section jumps to it, and clicking any chord in the song sheet plays from that chord.

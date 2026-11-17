@@ -625,6 +625,21 @@ fieldset.fld{border:0;padding:0;margin:0;display:grid;gap:4px}
   .brand h1{font-size:28px}
   .tabs button{font-size:17px;padding:8px 10px 6px}
 }
+/* header key: whose key it is, and the key history */
+#keyLbl{max-width:24ch;white-space:nowrap;text-overflow:ellipsis}
+.keyctl .keyhist{height:40px;padding:0 10px;font-size:17px;line-height:1}
+.banner.explore{margin:0 0 14px}
+.banner.explore .acts{display:flex;flex-wrap:wrap;gap:6px}
+.explore-note{margin:0 0 10px}
+.kl-list{display:grid;gap:6px;max-height:55vh;overflow:auto;margin-top:8px}
+.kl-row{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px}
+.kl-row .kl-t{grid-row:span 2;font-size:11.5px;color:var(--muted);align-self:center}
+.kl-row .kl-k,.kl-row .kl-c,.kl-row .kl-why{grid-column:2}
+.kl-row .kl-why{font-size:12.5px;color:var(--muted)}
+.kl-row.kl-view{opacity:.75;border-style:dashed}
+.kl-row.kl-bad{border:2px solid var(--root)}
+.kl-row.kl-bad .kl-why{color:var(--root);font-weight:600}
+@media (max-width:560px){.kl-row{grid-template-columns:1fr}.kl-row .kl-t{grid-row:auto}.kl-row .kl-k,.kl-row .kl-c,.kl-row .kl-why{grid-column:1}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -635,8 +650,9 @@ fieldset.fld{border:0;padding:0;margin:0;display:grid;gap:4px}
     <div><h1>Harmony Bench</h1><p>Fretboard, scales, chords and progressions</p></div>
   </div>
   <div class="keyctl">
-    <label class="fld"><span>Key</span><select id="keyRoot"></select></label>
+    <label class="fld"><span id="keyLbl">Key</span><select id="keyRoot"></select></label>
     <label class="fld"><span>Scale or mode</span><select id="keyScale"></select></label>
+    <button type="button" class="btn keyhist" data-act="keyHist" title="Key history: every key change and what caused it" aria-label="Key history">🕘</button>
     <label class="fld"><span>Instrument</span><select id="inst"></select></label>
   </div>
 </div></header>

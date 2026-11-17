@@ -306,19 +306,22 @@ function applySettings(o){
   if (o.inst && INST[o.inst]){ S.inst = o.inst; if (o.tuning) S.tun[o.inst] = o.tuning.slice(); if (o.capo != null) S.capo[o.inst] = o.capo; if (o.sound) S.snd[o.inst] = o.sound; }
   if (!SC[S.scale]) S.scale = 'major';
 }
+// A document is saved with its own key, whatever the header shows at the time
+const withKey = (o, k) => k ? { ...o, keyPc: k.pc, scale: k.scale } : o;
 function docContent(k){
   if (k === 'prog') refreshAutoName();
   const d = W[k];
   return k === 'prog'
-    ? { name: d.name, notes: d.notes, items: d.items, settings: snapSettings(), ...(d.genre ? { genre: d.genre } : {}) }
-    : { name: d.name, artist: d.artist, notes: d.notes, key: d.key, follow: !!d.follow, parts: d.parts, order: d.order, settings: snapSettings(), ...(d.genre ? { genre: d.genre } : {}) };
+    ? { name: d.name, notes: d.notes, items: d.items, settings: withKey(snapSettings(), d.keyAt), ...(d.genre ? { genre: d.genre } : {}) }
+    : { name: d.name, artist: d.artist, notes: d.notes, key: d.key, follow: !!d.follow, parts: d.parts, order: d.order, settings: withKey(snapSettings(), d.key), ...(d.genre ? { genre: d.genre } : {}) };
 }
 function isDirty(k){
   const d = W[k];
   if (!d.saved) return k === 'prog' ? d.items.length > 0 : d.parts.length > 0;
   return d.saved !== JSON.stringify(docContent(k));
 }
-const blankProg = () => ({ id: null, name: '', autoName: true, notes: '', created: null, updated: null, items: [], saved: null, genre: null });
+// a new progression starts in the key of the document you are in
+const blankProg = () => ({ id: null, name: '', autoName: true, notes: '', created: null, updated: null, items: [], saved: null, genre: null, keyAt: W ? clone(docKey()) : null });
 // Until a new progression is saved or renamed, its name follows the key: "C Major Progression", "A Dorian Progression"…
 const titleCase = s => s.replace(/(^|[\s(–-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
 function autoProgName(){
@@ -328,21 +331,37 @@ function autoProgName(){
   while (taken.has(`${base} ${n}`)) n++;
   return `${base} ${n}`;
 }
-function refreshAutoName(){ if (W.prog.autoName && !W.prog.id) W.prog.name = autoProgName(); }
+function refreshAutoName(){ if (W.prog.autoName && !W.prog.id) W.prog.name = W.prog.keyAt ? inSection({ key: W.prog.keyAt }, autoProgName) : autoProgName(); }
 // A saved progression whose key or scale is changed becomes a new, unsaved progression (its chords changed),
 // so Save can't overwrite the saved one; it takes the default name for the new key.
 const keyNow = () => ({ pc: S.keyPc, scale: S.scale });
 function keyGuard(){
   if (!W || W.edit) return;
-  const d = W.prog, k = keyNow();
-  if (!d.keyAt){ d.keyAt = k; return; }
-  if (d.keyAt.pc === k.pc && d.keyAt.scale === k.scale) return;
-  d.keyAt = k;
-  if (!d.id) return;
-  const old = d.name;
+  progKeyTo(keyNow());
+}
+// The progression's key becomes k with its chords moving along (they are stored relative to the key)
+function progKeyTo(k){
+  const d = W.prog;
+  if (!d.keyAt){ d.keyAt = clone(k); return; }
+  if (sameKey(d.keyAt, k)) return;
+  const from = clone(d.keyAt), cause = ui.keyCause, was = { id: d.id, created: d.created, updated: d.updated, saved: d.saved, autoName: d.autoName, name: d.name };
+  d.keyAt = clone(k);
+  keyLog({ where: 'Progression key', doc: d.name, from, to: k, chords: d.items.length ? 'moved' : 'none yet' });
+  save();
+  // put back the key and, for a saved progression, the saved one it was
+  const undo = { label: 'Undo', fn: () => {
+    keyLog({ where: 'Progression key', doc: d.name, from: d.keyAt, to: from, chords: 'moved back' });
+    Object.assign(d, was, { keyAt: from });
+    if (keyCtx() === 'prog'){ S.keyPc = from.pc; S.scale = from.scale; }
+    save(); renderAll();
+  } };
+  if (!d.id){
+    if ((cause === 'header' || !cause) && d.items.length) toast(`Your progression moved to ${esc(keyName(k))}: its chords moved with it.`, undo);
+    return;
+  }
   Object.assign(d, { id: null, created: null, updated: null, saved: null, autoName: true });
-  d.name = autoProgName();
-  toast(`New key, so this is now a new progression, “${esc(d.name)}”. “${esc(old)}” is still saved as it was.`);
+  d.name = inSection({ key: k }, autoProgName);
+  toast(`New key, so this is now a new progression, “${esc(d.name)}”. “${esc(was.name)}” is still saved as it was.`, undo);
 }
 const blankSong = () => ({ id: null, name: 'Untitled song', artist: '', notes: '', created: null, updated: null, parts: [], order: [], saved: null, genre: null });
 const listOf = k => k === 'prog' ? LIB.progressions : LIB.songs;
@@ -356,7 +375,7 @@ function storeDoc(k, asNew){
   const d = W[k], list = listOf(k);
   if (asNew || !d.id){ d.id = uid(); d.created = nowISO(); }
   d.updated = nowISO();
-  if (k === 'prog') d.keyAt = keyNow();
+  if (k === 'prog' && !d.keyAt) d.keyAt = keyNow();
   const rec = { id: d.id, created: d.created, updated: d.updated, ...clone(docContent(k)) };
   const i = list.findIndex(x => x.id === d.id);
   if (i >= 0) list[i] = rec; else list.unshift(rec);
@@ -371,16 +390,23 @@ function loadDoc(k, rec){
     W.song = { ...blankSong(), ...d };
     W.song.parts.forEach(p => { p.items = (p.items || []).filter(it => it && QMAP[it.q]); p.lyrics = p.lyrics || ''; });
   }
+  const from = keyNow();
   applySettings(rec.settings);
-  if (k === 'song'){ if (!W.song.key) W.song.key = keyNow(); W.song.parts.forEach(p => { if (!p.key) p.key = clone(W.song.key); }); }
+  // the document's own key goes in the header; a song's sections keep theirs (its saved settings never move them)
+  const st = rec.settings || {}, own = k === 'song' ? (W.song.key || { pc: st.keyPc || 0, scale: SC[st.scale] ? st.scale : 'major' }) : { pc: S.keyPc, scale: S.scale };
+  if (k === 'song'){ W.song.key = clone(own); W.song.parts.forEach(p => { if (!p.key) p.key = clone(W.song.key); }); }
+  else W.prog.keyAt = clone(own);
+  S.keyPc = from.pc; S.scale = from.scale;
   W.edit = null;
-  computeKey();
-  if (k === 'prog') W.prog.keyAt = keyNow();
   docItems(k).forEach(vosOf);
+  S.tab = k === 'prog' ? 'prog' : 'song';
+  // the header shows the opened document's key: nothing is written back
+  ui.keyCtx = keyCtx();
+  keyWhy('open'); loadCtxKey(ui.keyCtx);
+  computeKey();
   W[k].saved = JSON.stringify(docContent(k));
   prog = W.prog.items;
   ui.selSlot = 0; ui.selEnd = 0; ui.focus = null;
-  S.tab = k === 'prog' ? 'prog' : 'song';
   save(); renderAll();
 }
 // Runs `go` now, or first asks what to do with unsaved changes
@@ -693,7 +719,7 @@ Object.assign(ACT, {
     guardDirty(k, () => {
       if (PB.on) pbStop();
       if (k === 'prog'){ W.prog = blankProg(); if (!W.edit) prog = W.prog.items; }
-      else { W.song = blankSong(); W.edit = null; prog = W.prog.items; }
+      else { const key = clone(docKey()); leavePart(); W.song = blankSong(); W.song.key = key; prog = W.prog.items; }
       ui.selSlot = 0; ui.selEnd = 0; save(); renderTab();
     });
   },
@@ -841,12 +867,12 @@ Object.assign(ACT, {
   },
   toSong: () => {
     if (!prog.length){ toast('Add some chords first.'); return; }
-    if (!W.song.parts.length){ W.song = blankSong(); W.song.name = W.prog.autoName ? W.prog.name.replace(/Progression( \d+)?$/, 'Song') : W.prog.name; W.song.genre = W.prog.genre || null; addPart('Verse', clone(prog)); S.tab = 'song'; save(); renderTab(); toast('Started a song with this progression as its first section.'); return; }
+    if (!W.song.parts.length){ W.song = blankSong(); W.song.key = clone(docKey()); W.song.name = W.prog.autoName ? W.prog.name.replace(/Progression( \d+)?$/, 'Song') : W.prog.name; W.song.genre = W.prog.genre || null; addPart('Verse', clone(prog)); S.tab = 'song'; save(); renderTab(); toast('Started a song with this progression as its first section.'); return; }
     openModal('Make into a song', `<p>Your open song “${esc(W.song.name)}” already has ${W.song.parts.length} section${W.song.parts.length > 1 ? 's' : ''}.</p>`,
       [{ label: 'Cancel', act: 'modalClose' }, { label: 'Start a new song', act: 'toSongNew' }, { label: `Add as a section of “${esc(W.song.name)}”`, act: 'toSongAdd', primary: true }]);
   },
-  toSongAdd: () => { closeModal(); const p = addPart('Section', clone(prog)); p.key = keyNow(); S.tab = 'song'; save(); renderAll(); },
-  toSongNew: () => { closeModal(); const items = clone(prog), genre = W.prog.genre || null; guardDirty('song', () => { W.song = blankSong(); W.song.genre = genre; addPart('Verse', items); S.tab = 'song'; save(); renderTab(); }); },
+  toSongAdd: () => { closeModal(); const k = clone(docKey()), p = addPart('Section', clone(prog)); p.key = k; keyLog({ where: `Section key: ${p.name}`, doc: W.song.name, from: null, to: k, chords: 'new section (the progression’s chords)', cause: 'addSection' }); S.tab = 'song'; save(); renderAll(); },
+  toSongNew: () => { closeModal(); const items = clone(prog), genre = W.prog.genre || null, key = clone(docKey()); guardDirty('song', () => { W.song = blankSong(); W.song.genre = genre; W.song.key = key; addPart('Verse', items); S.tab = 'song'; save(); renderAll(); }); },
   backToSong: () => { if (PB.on) pbStop(); leavePart(); prog = W.prog.items; S.tab = 'song'; save(); renderAll(); },
   // song sections
   partEdit: el => editPart(el.dataset.arg),
@@ -997,6 +1023,13 @@ function upgradeShapes(){
   const h = (location.hash || '').slice(1);
   if (h === 'scales' || h === 'chords' || h === 'song') S.tab = h;
   if (h === 'progression') S.tab = 'prog';
+  // the header starts with the key of whatever is in front (the explore key, the progression, the song or the
+  // section being edited), so the first render only reads keys and never writes the stored header key into a document
+  ensureSongKeys();
+  if (!W.prog.keyAt) W.prog.keyAt = keyNow();
+  if (!S.explore) S.explore = keyNow();
+  ui.keyCtx = keyCtx();
+  keyWhy('boot'); loadCtxKey(ui.keyCtx);
   computeKey();
   if (!S.shape[S.inst] && fretted()){
     const v = bestFrets(diatonic(0, false));
