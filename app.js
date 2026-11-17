@@ -935,6 +935,12 @@ function candidatePool(){
       const c = mkChord(n.pc + 7, K.L + n.step + 4, '7');
       if (!fitsKey(c)) add(c, 'Secondary dominants');
     });
+    // their leading-tone chords (vii°7/x): a diminished 7th a half step below each chord of the key
+    K.notes.forEach((n, i) => {
+      if (i === 0 || diatonic(i, false).qid === 'dim') return;
+      const c = mkChord(n.pc + 11, K.L + n.step + 6, 'dim7');
+      if (!fitsKey(c)) add(c, 'Secondary dominants');
+    });
     const par = K.majorish ? 'aeolian' : 'major';
     const pn = parallelNotes(par);
     pn.forEach((_, i) => { const c = stackChord(pn, K.L, i, false); if (!fitsKey(c)) add(c, 'Borrowed from ' + (K.majorish ? 'minor' : 'major')); });
@@ -1209,8 +1215,12 @@ function substitutions(X){
   if (!isDimType(X) && X.qid !== 'aug'){
     const V = chordAt(X.rootPc + 7, '7');
     if (V.symbol !== X.symbol) push([V], 'before', `Put its own dominant (V7 of ${X.symbol}) in front, so the arrival feels inevitable.`);
+    const lt = chordAt(X.rootPc - 1, 'dim7');
+    if (lt.symbol !== X.symbol) push([lt], 'before', `Put its leading-tone chord (vii°7 of ${X.symbol}) in front: ${lt.rootName} rises a half step to ${X.rootName} and every other note slides by step into ${X.symbol}. More dramatic than V7, a classic gospel and show-tune move.`);
     const ii = chordAt(X.rootPc + 2, X.q.minor ? 'm7b5' : 'm7');
-    push([ii, V], 'before', `Put a ii–V into ${X.symbol} in front (a “tonicization”): the jazz way to spotlight a chord.`);
+    push([ii, V], 'before', `Put a ii–V of ${X.symbol} in front (a “tonicization”): for two chords ${X.symbol} becomes a new home. The jazz way to spotlight a chord.`);
+    const VV = chordAt(X.rootPc + 2, '7');
+    if (V.symbol !== X.symbol) push([VV, V], 'before', `An extended dominant chain into ${X.symbol}: ${VV.symbol} is the V7 of ${V.symbol}, which is the V7 of ${X.symbol}. Each chord resolves down a 5th into the next, so the pull builds twice before it lands.`);
   }
   if (GENRE()) res.sort((a, b) => styleBonus(b.chs[0], null).s - styleBonus(a.chs[0], null).s);
   return res;
@@ -1343,8 +1353,10 @@ function renderProg(){
   const BAR = S.ts.num;
   let bar = 1;
   const charts = S.progCharts && kind() !== 'bass', PV = charts ? progVoicings(prog) : null;
+  // Roman numerals read in context: extended dominants and secondary ii–V chains
+  const FC = functionChain(chs);
   const tl = chs.map((ch, i) => {
-    const a = analyze(ch), it = prog[i];
+    const a = FC.at(i), it = prog[i];
     let conn = '';
     if (i > 0){
       const tr = transition(chs[i - 1], ch);
@@ -1365,7 +1377,7 @@ function renderProg(){
   let detail = '<p class="muted">Select a chord in the timeline to see why it works.</p>';
   ui.subs = [];
   if (X){
-    const a = analyze(X);
+    const a = FC.at(ui.selSlot);
     const pi = ui.selSlot > 0 ? ui.selSlot - 1 : (S.loop && chs.length > 1 ? chs.length - 1 : -1);
     const prev = pi >= 0 ? chs[pi] : null, nx = nextAfter(chs, ui.selSlot), next = nx && !(nx.loop && !S.loop) ? nx.ch : null;
     const trIn = prev ? transition(prev, X) : null, trOut = next ? transition(X, next) : null;
@@ -1381,7 +1393,7 @@ function renderProg(){
       const en = s.kind === 'swap' ? easeNote(s.voices[0], prevV) : '';
       if (en) s.why += ` It is ${en}.`;
     });
-    const sub = ui.subs.map((s, i) => `<div class="rec"><button class="rs" data-act="subSolo" data-i="${i}" title="Play ${s.chs.length > 1 ? 'these chords' : 'just this chord'}">${s.chs.map(c => c.symbol).join(' ')}<small>${s.chs.map(c => analyze(c).rn).join(' ')}</small></button><div class="rw"><span class="pill ${s.lead ? 'k-strong' : s.kind === 'swap' ? 'k-color' : 'k-strong'}">${s.lead ? 'Swap: leads on' : s.kind === 'swap' ? 'Swap' : 'Insert before'}</span>${s.why}</div><div class="ra"><button class="btn sm" data-act="subHear" data-i="${i}">▶</button><button class="btn sm" data-act="subDo" data-i="${i}">${s.kind === 'swap' ? 'Swap' : 'Insert'}</button></div></div>`).join('');
+    const sub = ui.subs.map((s, i) => `<div class="rec"><button class="rs" data-act="subSolo" data-i="${i}" title="Play ${s.chs.length > 1 ? 'these chords' : 'just this chord'}">${s.chs.map(c => c.symbol).join(' ')}<small>${(s.kind === 'before' ? ctxRns([...s.chs, X]).slice(0, -1) : s.chs.map(c => analyze(c).rn)).join(' ')}</small></button><div class="rw"><span class="pill ${s.lead ? 'k-strong' : s.kind === 'swap' ? 'k-color' : 'k-strong'}">${s.lead ? 'Swap: leads on' : s.kind === 'swap' ? 'Swap' : 'Insert before'}</span>${s.why}</div><div class="ra"><button class="btn sm" data-act="subHear" data-i="${i}" aria-label="Hear it">▶</button><button class="btn sm" data-act="subWhy" data-i="${i}" title="Open it in the analyzer: where it comes from and how it moves">Why?</button><button class="btn sm" data-act="subDo" data-i="${i}">${s.kind === 'swap' ? 'Swap' : 'Insert'}</button></div></div>`).join('');
     const trBlock = (tr, label) => tr ? `<div class="why"><span class="lbl">${label}</span><div><span class="pill k-${tr.kind}">${tr.tag}</span></div><ul>${tr.lines.map(l => `<li>${l}</li>`).join('')}</ul></div>` : '';
     const it = prog[ui.selSlot];
     let voic = '';
@@ -1401,7 +1413,7 @@ function renderProg(){
       voic = `<div class="pvs" id="vgrid"><button class="pv${p.custom ? '' : ' on'}" data-act="slotV" data-i="-1" style="${p.custom ? '' : 'border-color:var(--ink)'}"><span class="lbl">Auto</span><span class="hint">${S.smooth ? 'Chosen by smooth voice leading' : 'Bass note plus a root-position chord'}</span></button>` +
         p.list.map((v, j) => { const lo = Math.floor(Math.min(...v.midis) / 12) * 12; return `<button class="pv" data-act="slotV" data-i="${j}" style="${p.custom && j === p.idx ? 'border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)' : ''}"><span class="lbl">${v.name}</span>${pianoSVG(lo, Math.max(lo + 23, Math.ceil((Math.max(...v.midis) + 1) / 12) * 12 - 1), v.midis, { w: 12, h: 46, ref: X, fit: true, noOct: true, lbl: () => '' })}</button>`; }).join('') + '</div>';
     }
-    detail = `<div class="dhead"><div class="big-sym">${X.symbol}</div><div><div class="mono" style="font-size:20px;font-weight:600">${a.rn}</div><div class="tag"><i class="${FN_CLASS[a.fn]}"></i>${FN_NAME[a.fn]} · ${a.origin}</div></div></div>
+    detail = `<div class="dhead"><div class="big-sym">${X.symbol}</div><div><div class="mono" style="font-size:20px;font-weight:600">${a.rn}</div><button class="tag an-link" data-act="anSel" title="Open in the analyzer: where it comes from, its notes and how the voices move"><i class="${FN_CLASS[a.fn]}"></i>${FN_NAME[a.fn]} · ${a.origin}${a.src ? ` (from ${esc(keyNameOf(a.src))})` : ''} <span class="an-go">Analyze ›</span></button></div></div>
       <p>${a.text}</p>
       ${trBlock(trIn, `Coming in from ${prev ? prev.symbol : ''}`)}
       ${trBlock(trOut, `Going out to ${next ? nx.label : ''}`)}
@@ -1419,7 +1431,7 @@ function renderProg(){
     const head = r.group !== lastG ? `<div class="rgroup">${r.group}</div>` : '';
     lastG = r.group;
     const a = analyze(r.ch), tr = r.tr;
-    return head + `<div class="rec"><button class="rs" data-act="recSolo" data-i="${i}" title="Play just this chord">${r.ch.symbol}<small>${a.rn}</small></button><div class="rw">${tr ? `<span class="pill k-${tr.kind}">${tr.tag}</span>` : ''}${a.inKey ? '' : `<span class="pill k-color">${a.origin}</span>`}${tr ? tr.lines[0] : r.why}${r.ctx && r.ctx.length ? ` <i class="muted">In context: ${r.ctx.join('; ')}.</i>` : ''}</div><div class="ra"><button class="btn sm" data-act="recHear" data-i="${i}" aria-label="Hear the move">▶</button><button class="btn sm" data-act="recAdd" data-i="${i}">${mid ? `Insert after ${A.symbol}` : '+ Add'}</button></div></div>`;
+    return head + `<div class="rec"><button class="rs" data-act="recSolo" data-i="${i}" title="Play just this chord">${r.ch.symbol}<small>${a.rn}</small></button><div class="rw">${tr ? `<span class="pill k-${tr.kind}">${tr.tag}</span>` : ''}${a.inKey ? '' : `<span class="pill k-color">${a.origin}</span>`}${tr ? tr.lines[0] : r.why}${r.ctx && r.ctx.length ? ` <i class="muted">In context: ${r.ctx.join('; ')}.</i>` : ''}</div><div class="ra"><button class="btn sm" data-act="recHear" data-i="${i}" aria-label="Hear the move">▶</button><button class="btn sm" data-act="recWhy" data-i="${i}" title="Open it in the analyzer: where it comes from and how it moves">Why?</button><button class="btn sm" data-act="recAdd" data-i="${i}">${mid ? `Insert after ${A.symbol}` : '+ Add'}</button></div></div>`;
   }).join('');
 
   const pool = candidatePool();
@@ -1452,6 +1464,7 @@ function renderProg(){
   ${practiceHTML('prog')}
   <div class="tlbar">
     ${kind() !== 'bass' ? `<div class="seg" id="progView" role="group" aria-label="Chord cards show"><button data-v="0" aria-pressed="${!charts}">Names</button><button data-v="1" aria-pressed="${charts}" title="Show each chord's chart: the shape playback uses, or the one you chose (✎)">Charts</button></div>` : ''}
+    <button class="btn sm" data-act="anOpen"${prog.length ? '' : ' disabled'} title="Open the analyzer: where every chord comes from, which chords visit another key, and the function flow">Analyze…</button>
     <span class="hint">Cards wrap to fit; click ↵ on a chord (top right) to start a new line there, e.g. at each new section or bar.</span>
   </div>
   <div class="timeline${charts ? ' charts' : ''}" id="timeline">${tl}</div>
@@ -1488,6 +1501,7 @@ function renderProg(){
   fitVoicingRow();
   paintNotation('prog');
   renderReadout();   // the instrument panel's Replace button names the selected chord
+  anRefresh();
 }
 // Collapsed, the voicing grid shows only its first row; the toggle says how many more there are.
 // Cards past the first row are hidden (not clipped), so the row keeps its natural height even when

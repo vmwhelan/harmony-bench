@@ -32,6 +32,7 @@ An interactive music theory and chord progression app for guitarists, bassists, 
 | `print.js` | Printable chord sheet and the sheet-music view |
 | `sections.js` | Song sections with their own key, time signature and tempo; key-change and transition ideas |
 | `patterns.js` | Strumming and picking patterns, the pattern editor |
+| `analyzer.js` | The analyzer pop-out: where chords outside the key come from, tonicizations, extended dominants and secondary ii–V labels |
 | `genres.js` | Genre guide: style profiles (typical chords, moves, modes, key changes and classic progressions) |
 | `vendor/vexflow.js` | [VexFlow](https://www.vexflow.com) 4.2.5, the music-notation library (MIT licence, see `vendor/VEXFLOW-LICENSE.txt`); loaded only when sheet music is shown |
 | `docs.js` | Saving and opening, copy/paste, time signatures and the song builder |
@@ -224,6 +225,20 @@ The header's key always says whose key it is, in the small label above it:
 - A new progression or song starts in the key you were working in. Opening a saved song always uses the song's own key and its sections' keys.
 - When the progression's key changes from the header menu, a message says so, with **Undo** (also for a saved progression that becomes a new one). **Whole song − / +** and loading a classic progression have Undo too, and Undo also puts the key back.
 - **🕘 Key history** (next to the key) lists every key change, newest first: which key changed (progression, song, a section, or the explore key), from what to what, what happened to the chords (moved, or kept and re-labelled), and what caused it (the header menu, Transpose, Analyze in…, opening a document, Undo…). Tick *Only changes to a progression, song or section key* to hide the rest. A change with no known cause is highlighted: if a key ever seems to change by itself, **Copy as text** and send that along. The history is kept in this browser only (the last 300 changes) and is not part of backups.
+
+## The analyzer (chords outside the key)
+
+The analyzer is a panel that opens on the right (at the bottom on a phone) and explains where a chord comes from. It never changes your chords. Close it with **×** or **Esc**. Open it with:
+
+- **Analyze…** above the Progression builder's chords: the whole progression.
+- **Why?** on any row of *What could come next* or *Substitutions and approaches*: the progression as if you had added or swapped that chord.
+- The chord's description in the detail panel (**Analyze ›**): the selected chord.
+
+**Progression view.** Every chord is outlined by where it comes from: in the key (grey), *secondary* (red: borrowed for a moment from the key of another chord, like a secondary dominant), *borrowed* (purple: from the parallel major or minor, "modal mixture") or *chromatic* (gold). Brackets above the chords mark the spans that visit another key and say which (**→ E minor**), including chains of dominants. The line below is the function flow (T tonic, PD pre-dominant, D dominant, ★ outside color). Click a chord for its details.
+
+**Chord view.** The home key's chords and the key the chord comes from, lined up on one ruler so the same root sits in the same column (C major's C Dm Em F G Am B° above E minor's C D Em F♯° G Am B7): shaded chords are in both keys, the chord is outlined in red and the chord it points at in blue. Below that, each of the chord's notes checked against the home key, with the ones from outside explained ("D♯: the leading tone of E, E minor's raised 7th"); how each voice moves from the chord before and into the chord after (half steps highlighted, notes that stay in green); ▶ buttons to hear the chord, the chord in context, and the chord in its own key (B7 → Em); and what it is, why it works, where it is typically used (turnarounds, pre-choruses, before a cadence) and when it doesn't work.
+
+**More secondary functions.** Labels now read chords in context: a chain of dominants is labelled as extended dominants (A7 → D7 → G7 → C is V7/V/V → V7/V → V7 → I), and a minor 7th that leads into a secondary dominant is its ii (Am7 → D7 → G is ii7/V → V7/V → V, even though Am7 is in the key). Chords that belong to another chord's key are labelled as tonicizations (ii/V, IV/V; rarer ones such as iii/V, vi/x, ♭VII/x are marked rare). The palette's *Secondary dominants* row now also has the leading-tone chords (vii°7/x), and *Substitutions and approaches* offers a vii°7 of the chord and an extended-dominant chain into it, next to its V7 and ii–V.
 
 ## Keys in the Song builder
 

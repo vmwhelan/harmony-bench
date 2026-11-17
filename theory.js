@@ -452,12 +452,48 @@ function findTritone(ch){
   return null;
 }
 
+// The key a chord outside the key comes from (shown by the analyzer): for a secondary function the key of the chord
+// it points at (a minor key for a minor target, harmonic or melodic minor when its notes need them), for a borrowed
+// chord the parallel scale. base: the plain version of that key (major or natural minor) the analyzer lines up.
+function srcKeyFor(ch, tpc, minorTarget){
+  const prefs = minorTarget ? ['aeolian', 'harmonic', 'melodic'] : ['major', 'harmonic', 'melodic', 'mixolydian'];
+  const base = minorTarget ? 'aeolian' : 'major';
+  for (const id of prefs){ const k = makeKey(tpc, id); if (ch.pcs.every(p => k.pcs.has(p))) return { pc: mod(tpc), scale: id, base, minor: minorTarget }; }
+  return { pc: mod(tpc), scale: base, base, minor: minorTarget };
+}
+// A chord borrowed for a moment from the key of another chord in the key (a tonicization): ii/V, IV/V, iii/V, vi/ii,
+// ♭VII/IV… The common ones (ii/x) rank above the rare ones (IV/x, iii/x, vi/x, v/x, ♭VII/x).
+const TZ_WEIGHT = { 2: 3, 4: 2, 3: 1, 6: 1, 5: 1, 7: 1 };
+function tonicization(ch){
+  if (!K.hept) return null;
+  let best = null;
+  K.notes.forEach((n, i) => {
+    if (i === 0) return;
+    const Y = diatonic(i, false);
+    if (isDimType(Y) || Y.qid === 'aug' || Y.rootPc === ch.rootPc) return;
+    const minor = Y.q.minor;
+    (minor ? ['aeolian', 'harmonic'] : ['major', 'mixolydian']).forEach(id => {
+      const k = makeKey(Y.rootPc, id), d = k.notes.findIndex(x => x.pc === ch.rootPc);
+      if (d < 0 || !ch.pcs.every(p => k.pcs.has(p))) return;
+      const num = d + 1;
+      if (num === 5 && !minor) return;   // V/x is a secondary dominant (found earlier)
+      if (id === 'mixolydian' && num !== 7) return;   // only ♭VII/x comes from the mixolydian side
+      const w = (TZ_WEIGHT[num] || 0) + ({ 4: 0.5, 3: 0.3, 1: 0.2, 5: 0.2 }[i] || 0) - (id === 'harmonic' ? 0.3 : 0);
+      if (!w || (best && best.w >= w)) return;
+      const rn = (id === 'mixolydian' ? '♭' : '') + romanStr(num, 0, ch.q);
+      best = { w, num, rare: num !== 2, tpc: Y.rootPc, Y, rn: `${rn}/${rnOfTriadPc(Y.rootPc)}`, local: rn, src: { pc: Y.rootPc, scale: id, base: minor ? 'aeolian' : 'major', minor } };
+    });
+  });
+  return best;
+}
+
 const ACACHE = new Map();
 function analyze(ch){
   const key = K.pc + S.scale + ch.symbol + ch.qid;
   if (ACACHE.has(key)) return ACACHE.get(key);
   const r = analyzeRaw(ch); ACACHE.set(key, r); return r;
 }
+const keyNameOf = k => makeKey(k.pc, k.scale === 'harmonic' || k.scale === 'melodic' ? k.base || k.scale : k.scale).name;
 function analyzeRaw(ch){
   const rel = mod(ch.rootPc - K.pc);
   const inKey = fitsKey(ch);
@@ -491,14 +527,14 @@ function analyzeRaw(ch){
     const tpc = mod(ch.rootPc + 5);
     if (tpc === K.pc){
       out.fn = 'D'; out.tension = 3; out.target = tpc; out.origin = 'Major dominant';
-      out.rn = 'V' + rnSuffix(ch.q);
+      out.rn = 'V' + rnSuffix(ch.q); out.src = { pc: K.pc, scale: 'harmonic', base: 'aeolian', minor: true };
       out.text = `A major V borrowed from harmonic minor. Its 3rd, ${lt}, is a leading tone a half step below ${tonicName}, so it pulls home harder than the scale's own v.`;
       return out;
     }
     const t = triadOnPc(tpc);
     if (t && t.qid !== 'dim'){
       out.fn = 'D'; out.tension = 2.8; out.target = tpc; out.origin = 'Secondary dominant';
-      out.rn = 'V' + rnSuffix(ch.q) + '/' + rnOfTriadPc(tpc);
+      out.rn = 'V' + rnSuffix(ch.q) + '/' + rnOfTriadPc(tpc); out.src = srcKeyFor(ch, tpc, t.q.minor);
       out.text = `Secondary dominant of ${t.symbol}. It borrows a dominant from another key for a moment: ${lt} sits a half step below ${t.rootName} and wants to rise to it.`;
       return out;
     }
@@ -509,6 +545,7 @@ function analyzeRaw(ch){
     if (tpc === K.pc || (t && t.qid !== 'dim')){
       out.fn = 'D'; out.tension = 2.8; out.target = tpc; out.origin = 'Leading-tone chord';
       out.rn = 'vii' + rnSuffix(ch.q) + (tpc === K.pc ? '' : '/' + rnOfTriadPc(tpc));
+      out.src = srcKeyFor(ch, tpc, tpc === K.pc ? !K.majorish : t.q.minor);
       out.text = `Leading-tone diminished chord aimed at ${tpc === K.pc ? tonicName : t.symbol}. Every note is a half or whole step from a note of the target, so it snaps into place.`;
       return out;
     }
@@ -520,21 +557,32 @@ function analyzeRaw(ch){
       const v7 = chordAt(tpc + 7, '7');
       out.fn = 'D'; out.tension = 2.9; out.target = tpc; out.origin = 'Tritone substitute';
       out.rn = 'subV7' + (tpc === K.pc ? '' : '/' + rnOfTriadPc(tpc));
+      out.src = srcKeyFor(ch, tpc, tpc === K.pc ? !K.majorish : t.q.minor);
       out.text = `Tritone substitute for ${v7.symbol}. Both chords share the tritone ${toneName(ch, 4)}–${toneName(ch, 10)}, and the bass slides down a half step into ${tpc === K.pc ? tonicName : t.symbol}.`;
       return out;
     }
   }
   if (rel === 1 && (ch.qid === 'maj' || ch.qid === 'maj7')){
-    out.fn = 'PD'; out.tension = 2.4; out.origin = 'Neapolitan';
+    out.fn = 'PD'; out.tension = 2.4; out.origin = 'Neapolitan'; out.src = { pc: K.pc, scale: 'phrygian', base: 'phrygian', minor: true };
     out.text = 'Neapolitan chord: a major chord on the lowered 2nd. A dramatic pre-dominant that usually heads to V.';
     return out;
   }
-  const order = K.majorish ? ['aeolian','dorian','mixolydian','phrygian','harmonic','melodic','lydian','major'] : ['major','dorian','harmonic','melodic','aeolian','mixolydian','phrygian','lydian'];
+  // the common parallel scales first, then a chord tonicizing another chord of the key (ii/V…), then the rare modes
+  const order = K.majorish ? ['aeolian','dorian','mixolydian','harmonic','melodic','major','tz','phrygian','lydian'] : ['major','dorian','harmonic','melodic','aeolian','mixolydian','tz','phrygian','lydian'];
   for (const id of order){
+    if (id === 'tz'){
+      const tz = tonicization(ch);
+      if (!tz) continue;
+      out.origin = tz.rare ? 'Tonicization (rare)' : 'Tonicization'; out.rn = tz.rn; out.src = tz.src; out.tonic = tz.tpc;
+      out.fn = tz.num === 2 || tz.num === 4 ? 'PD' : tz.num === 7 ? 'D' : 'X';
+      out.tension = { PD: 2.3, D: 2.6, X: 2.1 }[out.fn];
+      out.text = `Borrowed for a moment from the key of ${tz.Y.symbol} (${keyNameOf(tz.src)}), where it is the ${tz.local}. ${tz.num === 2 ? `As ii of ${tz.Y.symbol} it usually leads to ${tz.Y.symbol}'s own V7, a ii–V that spotlights ${tz.Y.symbol}.` : tz.num === 4 ? `As IV of ${tz.Y.symbol} it leans toward ${tz.Y.symbol} like a plagal (“amen”) move.` : `A rare, colorful choice: heard as ${tz.local} of ${tz.Y.symbol}, it hints at ${keyNameOf(tz.src)} without a strong pull.`}`;
+      return out;
+    }
     if (id === S.scale) continue;
     const set = scalePcs(id);
     if (ch.pcs.every(p => set.has(p))){
-      out.origin = 'Borrowed'; out.from = `${tonicName} ${SC[id].short}`;
+      out.origin = 'Borrowed'; out.from = `${tonicName} ${SC[id].short}`; out.src = { pc: K.pc, scale: id, base: id, minor: !makeKey(K.pc, id).majorish };
       const key = accS(acc) + num;
       const fnMap = { '1':'T', '♭3':'T', '3':'T', '♭6':'PD', '6':'PD', '4':'PD', '2':'PD', '♭2':'PD', '♭7':'PD', '7':'D', '5':'D', '♭5':'X', '♯4':'PD' };
       out.fn = fnMap[key] || 'X';
