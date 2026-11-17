@@ -286,6 +286,19 @@ function identify(midis){
       cands.push({ r, q: q.id, score: q.rank * 0.08 + missing * 0.6 + (r === bass ? 0 : 1.6) });
     }
   }
+  // a chord over a bass note that is not one of its notes (E/A: E–G♯–B over A): the upper notes on their own must
+  // make a chord of 3 or more notes; it ranks below any reading that uses every note as a chord tone
+  const upper = pcs.filter(p => p !== bass || sorted.filter(m => mod(m) === bass).length > 1);
+  if (upper.length === pcs.length - 1 && upper.length >= 3){
+    for (const r of upper){
+      const rel = new Set(upper.map(p => mod(p - r)));
+      for (const q of QLIST){
+        if (q.dyad || q.id === '5' || !q.req.every(s => rel.has(s)) || ![...rel].every(s => q.full.includes(s))) continue;
+        const missing = new Set(q.full).size - rel.size;
+        cands.push({ r, q: q.id, score: q.rank * 0.08 + missing * 0.6 + 2.4 });
+      }
+    }
+  }
   cands.sort((a, b) => a.score - b.score);
   const out = [], seen = new Set();
   for (const c of cands){
@@ -303,7 +316,8 @@ function fretVoicings(ch, tun, inv = false, FR = 15){
   const n = tun.length;
   const key = tun.join(',') + '|' + FR + '|' + ch.rootPc + ch.qid + '|' + (ch.bassPc ?? '') + '|' + (inv ? 1 : 0);
   if (VCACHE.has(key)) return VCACHE.get(key);
-  const full = new Set(ch.pcs), req = ch.reqPcs;
+  // a slash chord's bass may be a note outside the chord (E/A): strings may play it too
+  const full = new Set(ch.bassPc != null ? [...ch.pcs, ch.bassPc] : ch.pcs), req = ch.reqPcs;
   const reentrant = tun.some((m, i) => i > 0 && m < tun[i - 1]);
   const bassReq = ch.bassPc != null ? ch.bassPc : (inv ? null : ch.rootPc);
   const SPAN = 3, found = new Map();
@@ -408,11 +422,14 @@ function pianoVoicings(ch){
   const order = ch.tones.map(t => t.pc).filter((p, i, a) => a.indexOf(p) === i);
   const names = ['Root position','1st inversion','2nd inversion','3rd inversion'];
   const res = [];
-  const start = ch.bassPc != null ? order.indexOf(ch.bassPc) : 0;
+  // the bass of a slash chord can be one of its notes (an inversion) or a note outside it (E/A): then it goes underneath
+  const inChord = ch.bassPc == null || order.includes(ch.bassPc);
+  const start = ch.bassPc != null && inChord ? order.indexOf(ch.bassPc) : 0;
+  const under = ms => { let b = Math.min(...ms) - 1; while (mod(b) !== ch.bassPc) b--; return [b, ...ms]; };
   for (let k = 0; k < Math.min(order.length, 4); k++){
     const kk = (start + k) % order.length;
-    const o = order.slice(kk).concat(order.slice(0, kk));
-    res.push({ name: ch.bassPc != null && k === 0 ? 'Slash bass on the bottom' : names[kk] || `Inversion ${kk}`, midis: closeFrom(o, 53) });
+    const o = order.slice(kk).concat(order.slice(0, kk)), ms = closeFrom(o, 53);
+    res.push({ name: ch.bassPc != null && k === 0 ? 'Slash bass on the bottom' : names[kk] || `Inversion ${kk}`, midis: inChord ? ms : under(ms) });
   }
   if (order.length >= 4){
     const c = closeFrom(order, 55), d2 = c.slice(), x = d2.splice(d2.length - 2, 1)[0];
