@@ -39,6 +39,14 @@ function functionChain(chs){
     }
     i = m;
   }
+  // a dominant 7th that resolves down a 5th to a chord outside the key is that chord's V7 (A7 → D in C♯ minor: V7/♭II)
+  for (let i = 0; i < n - 1; i++){
+    if (over[i] || !isDom7(chs[i]) || !fifthDown(chs[i], chs[i + 1]) || an[i].target === chs[i + 1].rootPc || an[i + 1].inKey) continue;
+    const B = chs[i + 1];
+    over[i] = { ...an[i], rn: 'V' + rnSuffix(chs[i].q) + '/' + an[i + 1].rn.replace(/7$|maj7$/, ''), origin: 'Secondary dominant', fn: 'D', tension: 2.8, target: B.rootPc,
+      src: srcKeyFor(chs[i], B.rootPc, B.q.minor),
+      text: `Secondary dominant of ${B.symbol}: ${chs[i].symbol} is the V7 of ${B.symbol}, a chord from outside the key, and resolves down a 5th into it. ${toneName(chs[i], 4)} is a half step below ${B.rootName}.` };
+  }
   // secondary ii–V
   for (let i = 0; i < n - 1; i++){
     const A = chs[i], B = chs[i + 1], aB = over[i + 1] || an[i + 1];

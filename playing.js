@@ -359,8 +359,9 @@ function miniEl(){
   return (MINI.el = el);
 }
 // The play button of the tab that is playing, if it is on screen
+const pbTab = () => PB.mode === 'song' ? 'song' : PB.mode === 'ex' ? 'learn' : 'prog';
 function transportVisible(){
-  const tab = PB.mode === 'song' ? 'song' : 'prog';
+  const tab = pbTab();
   if (S.tab !== tab) return false;
   const b = document.querySelector(`#p-${tab} .play`);
   if (!b) return false;
@@ -384,7 +385,7 @@ function miniRender(){
     <button class="btn sm" data-act="miniBack" title="Scroll back to the full controls" aria-label="Back to the full controls">↑<span class="long"> Controls</span></button>`;
 }
 function miniUpdate(e, ch, startBeat){
-  MINI.now = { sym: ch.symbol, next: ui.nextCh ? ui.nextCh.symbol : '', sec: PB.mode === 'song' && e.sec ? e.sec.name : '', bar: Math.floor(startBeat / S.ts.num) + 1 };
+  MINI.now = { sym: ch.symbol, next: ui.nextCh ? ui.nextCh.symbol : '', sec: (PB.mode === 'song' || PB.mode === 'ex') && e.sec ? e.sec.name : '', bar: Math.floor(startBeat / S.ts.num) + 1 };
   miniRender(); miniShow();
 }
 window.addEventListener('scroll', () => { if (PB.on) miniShow(); }, { passive: true });
@@ -399,8 +400,9 @@ Object.assign(ACT, {
     miniRender();
   },
   miniBack: () => {
-    const tab = PB.mode === 'song' ? 'song' : 'prog';
-    if (S.tab !== tab){ S.tab = tab; renderAll(); }
+    const tab = pbTab();
+    if (PB.mode === 'ex'){ S.learnLesson = 'songs'; LW.song = PB.exId; if (S.tab !== tab){ S.tab = tab; renderAll(); } else renderLearn(); }
+    else if (S.tab !== tab){ S.tab = tab; renderAll(); }
     const t = document.querySelector(`#p-${tab} .transport`);
     if (t) t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
   },

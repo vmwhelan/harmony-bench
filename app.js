@@ -1535,12 +1535,14 @@ function pbStart(mode = 'prog', from = 0){
   let seq;
   // song entries carry their section, whose key, time signature and tempo they play in
   if (mode === 'song') seq = songSeq();
+  // a Learn-tab song example: entries built by examples.js, each with its section (key, name)
+  else if (mode && mode.ex) seq = mode.ex;
   else if (mode && mode.part){ const p = W.song.parts.find(x => x.id === mode.part); const o = W.song.order.indexOf(mode.part); seq = p ? p.items.map((it, i) => ({ it, i, o: o < 0 ? 'p' + p.id : o, part: p.id, sec: p, ch: inSection(p, () => fromItem(it)) })) : []; }
   else seq = prog.map((it, i) => ({ it, i }));
   if (!seq.length){ toast(mode === 'song' ? 'Add sections with chords to the arrangement first.' : 'Add a chord first.'); return; }
   const ctx = ac();
   from = clamp(from || 0, 0, seq.length - 1);
-  Object.assign(PB, { on: true, mode: mode === 'prog' ? 'prog' : 'song', seq, n: from, beat: seq.slice(0, from).reduce((a, e) => a + e.it.b, 0), startedAt: performance.now(), t: ctx.currentTime + 0.12, prevUp: null, prevPos: null, bassV: null, timers: [] });
+  Object.assign(PB, { on: true, mode: mode === 'prog' ? 'prog' : mode && mode.ex ? 'ex' : 'song', exId: mode && mode.ex ? mode.id : null, exWhat: mode && mode.ex ? mode.what : null, seq, n: from, beat: seq.slice(0, from).reduce((a, e) => a + e.it.b, 0), startedAt: performance.now(), t: ctx.currentTime + 0.12, prevUp: null, prevPos: null, bassV: null, timers: [] });
   PB.out = ctx.createGain(); PB.kind = kind(); PB.out.connect(busFor(soundFor(PB.kind)));
   bandStart(ctx);
   tick(); renderTab();
@@ -1552,7 +1554,7 @@ function pbStop(){
   VO.forEach((v, s) => { if (v && AU.ctx) cutVoice(v, AU.ctx.currentTime); VO[s] = null; });
   PB.out = null; ui.playing = -1; ui.nextIt = null; ui.nextCh = null;
   bandStop();
-  document.querySelectorAll('.sc-chip.now,.arr.now,.sh-part.now').forEach(x => x.classList.remove('now'));
+  document.querySelectorAll('.sc-chip.now,.arr.now,.sh-part.now,.an-c.now').forEach(x => x.classList.remove('now'));
   renderTab();
   miniShow();
 }
@@ -1670,6 +1672,10 @@ function sched(e, t, dur){
     miniUpdate(e, ch, start);
     renderInstrument();
     if (PB.mode === 'prog'){ ui.playing = i; ui.selSlot = i; ui.selEnd = i; if (S.tab === 'prog') renderProg(); }
+    else if (PB.mode === 'ex'){
+      document.querySelectorAll('.an-c.now').forEach(x => x.classList.remove('now'));
+      document.querySelectorAll(`.an-c[data-xo="${e.o}"][data-i="${i}"]`).forEach(x => x.classList.add('now'));
+    }
     else {
       document.querySelectorAll('.sc-chip.now,.arr.now,.sh-part.now').forEach(x => x.classList.remove('now'));
       document.querySelectorAll(`.sc-chip[data-o="${e.o}"][data-ci="${i}"], .sc-chip[data-o="p${e.part || W.song.order[e.o]}"][data-ci="${i}"]`).forEach(x => x.classList.add('now'));
@@ -1919,7 +1925,8 @@ const ACT = {
   toastAct: () => { const f = ui.toastAct; $('#toast').hidden = true; keyWhy('undo'); if (f) f(); },
 };
 document.addEventListener('click', e => {
-  const segB = e.target.closest('.seg button');
+  // segmented buttons without their own action (data-act) set the setting named by their group's id
+  const segB = e.target.closest('.seg button:not([data-act])');
   if (segB){
     const id = segB.parentElement.id, v = segB.dataset.v;
     if (id === 'clickMode') S.clickMode = v;
@@ -1998,7 +2005,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if ((e.key === 'Delete' || e.key === 'Backspace') && S.tab === 'prog' && prog.length){ e.preventDefault(); ACT.selDel(); return; }
-  if (e.code === 'Space'){ e.preventDefault(); PB.on ? pbStop() : S.tab === 'song' ? pbStart('song', songIndexAt(ui.songFrom || 0)) : pbStart('prog', ui.selSlot); }
+  if (e.code === 'Space'){ e.preventDefault(); PB.on ? pbStop() : S.tab === 'learn' && S.learnLesson === 'songs' ? ACT.exToggle() : S.tab === 'song' ? pbStart('song', songIndexAt(ui.songFrom || 0)) : pbStart('prog', ui.selSlot); }
   else if (e.key === 's' || e.key === 'S'){ fretted() ? strumFrets(shape()) : rollMidis(activeMidis()); }
   else if (/^[1-7]$/.test(e.key) && K.hept){ playChord(diatonic(+e.key - 1, S.ext7)); refreshTabLight(); }
 });
