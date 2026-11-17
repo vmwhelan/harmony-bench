@@ -234,20 +234,27 @@ function anChordHTML(){
     ${tr ? `<h4 class="an-h4">Why it works into ${next.symbol}</h4><ul class="an-ul">${tr.lines.slice(0, 4).map(l => `<li>${l}</li>`).join('')}</ul>` : ''}
     ${use ? `<h4 class="an-h4">Where it is used</h4><p>${use.place}</p>${use.not ? `<h4 class="an-h4">When it doesn’t work</h4><p>${use.not}</p>` : ''}` : ''}`;
 }
-function anProgHTML(){
-  const A = ui.an, chs = A.chs, fc = functionChain(chs), n = chs.length;
+// The strip of chords colored by origin, with brackets over the tonicized spans and the function flow (in the key K).
+// act/attrs: what clicking a chord does
+function anStripHTML(chs, focus, act = 'anChord', attrs = ''){
+  const fc = functionChain(chs), n = chs.length;
   // brackets in rows so overlapping spans don't collide
   const levels = [];
   fc.spans.forEach(s => { let l = levels.findIndex(end => end < s.from); if (l < 0){ l = levels.length; levels.push(-1); } levels[l] = s.to; s.level = l; });
   const L = levels.length;
   const br = fc.spans.map(s => `<span class="an-br an-br-${s.kind}" style="grid-column:${s.from + 1} / ${s.to + 2};grid-row:${s.level + 1}" title="${esc(s.label)}">${esc(s.label)}</span>`).join('');
-  const cells = chs.map((c, i) => { const a = fc.at(i), o = anOrigin(a); return `<button class="an-c an-o-${o}${i === A.focus ? ' on' : ''}" style="grid-row:${L + 1}" data-act="anChord" data-i="${i}" title="${esc(a.origin)}"><b>${c.symbol}</b><small>${a.rn}</small></button>`; }).join('');
+  const cells = chs.map((c, i) => { const a = fc.at(i), o = anOrigin(a); return `<button class="an-c an-o-${o}${i === focus ? ' on' : ''}" style="grid-row:${L + 1}" data-act="${act}" data-i="${i}" ${attrs} title="${esc(a.origin)}"><b>${c.symbol}</b><small>${a.rn}</small></button>`; }).join('');
   const fns = chs.map((c, i) => { const a = fc.at(i); return `<span class="an-fn" style="grid-row:${L + 2}"><i class="${FN_CLASS[a.fn]}"></i>${a.fn === 'X' ? '★' : a.fn}</span>`; }).join('');
+  return `<div class="an-scroll"><div class="an-prog" style="grid-template-columns:repeat(${n}, minmax(62px, 1fr))">${br}${cells}${fns}</div></div>`;
+}
+const anLegendHTML = (counts = {}) => `<div class="an-legend">${Object.keys(AN_ORIGIN_NAME).map(k => `<span><i class="an-sw an-o-${k}"></i>${AN_ORIGIN_NAME[k]}${counts[k] ? ` (${counts[k]})` : ''}</span>`).join('')}</div>`;
+function anProgHTML(){
+  const A = ui.an, chs = A.chs, fc = functionChain(chs);
   const counts = { in: 0, sec: 0, bor: 0, chr: 0 };
   chs.forEach((c, i) => counts[anOrigin(fc.at(i))]++);
   const outside = chs.map((c, i) => ({ c, i, a: fc.at(i) })).filter(x => anOrigin(x.a) !== 'in');
-  return `<div class="an-legend">${Object.keys(counts).map(k => `<span><i class="an-sw an-o-${k}"></i>${AN_ORIGIN_NAME[k]}${counts[k] ? ` (${counts[k]})` : ''}</span>`).join('')}</div>
-    <div class="an-scroll"><div class="an-prog" style="grid-template-columns:repeat(${n}, minmax(62px, 1fr))">${br}${cells}${fns}</div></div>
+  return `${anLegendHTML(counts)}
+    ${anStripHTML(chs, A.focus)}
     <p class="hint">Brackets mark chords that visit another key for a moment (a tonicization) and where they land. The bottom line is the function flow: T tonic (home), PD pre-dominant (moving away), D dominant (tension), ★ outside color. Click a chord for the details.</p>
     ${outside.length ? `<h4 class="an-h4">Chords from outside ${esc(K.name)}</h4><div class="recs">${outside.map(x => `<div class="rec idea"><div class="rw"><span class="pill an-o-${anOrigin(x.a)}">${x.c.symbol} · ${x.a.rn}</span>${esc(AN_USE[anCat(x.a)] ? AN_USE[anCat(x.a)].name : x.a.origin)}${x.a.src ? `, from ${esc(keyNameOf(x.a.src))}` : ''}.</div><div class="ra"><button class="btn sm" data-act="anChord" data-i="${x.i}">Details</button></div></div>`).join('')}</div>` : `<p>Every chord is in ${esc(K.name)}.</p>`}`;
 }

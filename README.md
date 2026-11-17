@@ -34,6 +34,7 @@ An interactive music theory and chord progression app for guitarists, bassists, 
 | `patterns.js` | Strumming and picking patterns, the pattern editor |
 | `analyzer.js` | The analyzer pop-out: where chords outside the key come from, tonicizations, extended dominants and secondary ii–V labels |
 | `learn.js` | The Learn tab: lessons with interactive widgets (intervals, scales, chords, circle of fifths, voice leading, chords outside the key, modulation) |
+| `examples.js` | Song examples for the Learn tab (chords and analysis only) |
 | `genres.js` | Genre guide: style profiles (typical chords, moves, modes, key changes and classic progressions) |
 | `vendor/vexflow.js` | [VexFlow](https://www.vexflow.com) 4.2.5, the music-notation library (MIT licence, see `vendor/VEXFLOW-LICENSE.txt`); loaded only when sheet music is shown |
 | `docs.js` | Saving and opening, copy/paste, time signatures and the song builder |
@@ -238,6 +239,10 @@ The **Learn** tab (after Song builder) has short lessons for someone starting fr
 5. **Tension and resolution**: pick a move (V7 → I, vii°7 → I, IV → I, iv → I, V → vi, V7/vi → vi, ♭VII → I, ii → V, or any two chords) and see each voice move on a little piano roll: half steps in red, notes that stay in green. Play each voice alone, only the moving voices, both chords, or a version where the leading tone doesn't resolve, to hear the difference.
 6. **Chords outside the key**: reference cards for secondary dominants, extended dominants, secondary leading-tone chords, ii–V of X, secondary subdominants, the rare secondary mediant/submediant/subtonic, ♭VII, borrowed chords, the Neapolitan, tritone substitutes and chromatic mediants: how to build each, an example in C (▶ hear it resolve), how common it is, where it works and when it doesn't, and **Open in analyzer**.
 7. **Changing key (modulation)**: pivot chords, going through the new key's V7, the direct "truck-driver" lift and borrowed pivots, with examples to hear, where each goes in a song (into the chorus, the bridge, the last chorus), and a link to the Song builder's key-change ideas.
+
+8. **Songs that break the rules (well)**: short passages from well-known songs, chords only (no lyrics), each showing a chord from outside the key, a chromatic line or a key change: *Eight Days a Week*, *Help!*, *Yesterday*, *In My Life*, *Something*, *Hey Jude*, *Here Comes the Sun* (the Beatles), *Creep* (Radiohead), *Don't Look Back in Anger* (Oasis), *Livin' on a Prayer* (Bon Jovi), and *Jesus, Etc.* and *Heavy Metal Drummer* (Wilco). Each passage is colored like the analyzer (secondary dominants, borrowed chords, brackets where the music visits another key), with ▶ to hear it, notes on what happens and why it works where it is (verse, bridge, coda…), and a tip for your own writing. Click a chord to open it in the analyzer; **Open as a song** loads the example into the Song builder as a new, unsaved song, each section in its own key (for example *Something*'s bridge in A major), so you can play with it. The cards in lessons 6 and 7 link to the matching songs (**Hear it in:**).
+
+   The charts were checked against at least two published sources each (chord sheets and analyses such as Alan W. Pollack's "Notes on" series); songs whose charts the sources disagreed on were left out. They are simplified and the bar lengths are approximate.
 
 You can also open the tab directly with `#learn` at the end of the address.
 

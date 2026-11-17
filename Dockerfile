@@ -4,7 +4,7 @@ FROM node:20-alpine
 RUN apk add --no-cache openssl
 WORKDIR /app
 COPY server.js ./
-COPY index.html theory.js app.js playing.js band.js inputs.js print.js sections.js genres.js patterns.js analyzer.js learn.js docs.js ./public/
+COPY index.html theory.js app.js playing.js band.js inputs.js print.js sections.js genres.js patterns.js analyzer.js learn.js examples.js docs.js ./public/
 COPY vendor ./public/vendor/
 # /data holds library.json and the certificate; the compose file mounts a named volume here so they survive updates
 RUN mkdir -p /data && chown node:node /data
