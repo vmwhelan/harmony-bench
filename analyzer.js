@@ -170,10 +170,12 @@ function anRender(){
   focusIn();
 }
 // a chord's name and Roman numeral, small
-const anChip = (ch, rn, cls = '') => `<span class="an-cell ${cls}"><b>${ch.symbol}</b><small>${rn}</small></span>`;
+// a chord on the ruler: clicking it shows it on the fretboard (or keyboard) and plays it
+const anChip = (ch, rn, cls = '') => { const i = ui.anCells.push(ch) - 1; return `<button class="an-cell ${cls}" data-act="anShow" data-c="${i}" title="Show ${ch.symbol} on the instrument and play it"><b>${ch.symbol}</b><small>${rn}</small></button>`; };
 // '2' → '2nd', '♭6' → '♭6th'
 const degOrd = l => { const n = +l.replace(/[^\d]/g, ''); return l + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'); };
 function anChordHTML(){
+  ui.anCells = [];
   const A = ui.an, chs = A.chs, i = clamp(A.focus, 0, chs.length - 1), ch = chs[i];
   const fc = functionChain(chs), a = fc.at(i), cat = anCat(a), use = AN_USE[cat];
   const prev = i > 0 ? chs[i - 1] : null, next = i < chs.length - 1 ? chs[i + 1] : null;
@@ -213,7 +215,7 @@ function anChordHTML(){
       else if (deg) why = `the ${degOrd(deg.lbl)} note of ${srcName}${srcK.pcs.has(t.pc) ? '' : ` (from ${SC[src.scale].name.toLowerCase()})`}${cat === 'borrowed' ? `, borrowed into ${K.name}` : ''}`;
     }
     if (!inHome && t.num === 7 && isDom7(ch)) why += '; as the 7th of a dominant it wants to fall a step';
-    return `<span class="an-note${inHome ? '' : ' out'}"><b>${t.name}</b><small>${t.lbl === '1' ? 'root' : t.lbl}</small><i>${why}</i></span>`;
+    return `<button class="an-note${inHome ? '' : ' out'}" data-act="anNote" data-pc="${t.pc}" title="Play ${t.name}"><b>${t.name}</b><small>${t.lbl === '1' ? 'root' : t.lbl}</small><i>${why}</i></button>`;
   }).join('');
   // voice leading prev → chord → next (the upper voices, voiced as smoothly as playback does)
   const v1 = leadUpper(ch, prev ? rootUpper(prev) : null), v0 = prev ? rootUpper(prev) : null, v2 = next ? leadUpper(next, v1) : null;
@@ -273,7 +275,10 @@ Object.assign(ACT, {
   anSel: () => anOpenWith({ chs: progChords(), view: 'chord', live: true, focus: ui.selSlot, title: W.edit ? `Section: ${(partById(W.edit) || {}).name || ''}` : W.prog.name }),
   anClose: () => anClose(),
   anView: el => { ui.an.view = el.dataset.v; anRender(); },
-  anChord: el => { ui.an.focus = +el.dataset.i; ui.an.view = 'chord'; anRender(); anEl().scrollTop = 0; },
+  // a chord of the progression: its details, and it is shown on the instrument (and heard)
+  anChord: el => { ui.an.focus = +el.dataset.i; ui.an.view = 'chord'; anRender(); anEl().scrollTop = 0; const ch = ui.an.chs[ui.an.focus]; if (ch) playChord(ch); },
+  anShow: el => { const ch = ui.anCells && ui.anCells[+el.dataset.c]; if (ch) playChord(ch); },
+  anNote: el => { ac(); playNote(kind() === 'bass' ? 'piano' : kind(), 60 + +el.dataset.pc, null, { vel: 0.8, dur: 1 }); },
   anPlay: el => { const p = ui.anPlay && ui.anPlay[el.dataset.arg]; if (p) previewSeq(p); },
   // "Why?" on a suggestion: the progression as if it were added after the selected chord
   recWhy: el => {

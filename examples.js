@@ -263,7 +263,9 @@ Object.assign(ACT, {
   exPlay: el => { if (exPlaying() && PB.exWhat === el.dataset.s) pbStop(); else exStart(el.dataset.s); },
   exChord: el => {
     const ex = exById(LW.song), s = exPartOf(ex, el.dataset.xo);
-    anOpenWith({ chs: exChordsOf(ex, s).map(x => x.ch), key: exSecKey(ex, s), focus: +el.dataset.i, view: 'chord', title: `${ex.song}: ${s.name}` });
+    const chs = exChordsOf(ex, s).map(x => x.ch);
+    anOpenWith({ chs, key: exSecKey(ex, s), focus: +el.dataset.i, view: 'chord', title: `${ex.song}: ${s.name}` });
+    if (!PB.on) playChord(chs[+el.dataset.i]);
   },
   exAn: el => {
     const ex = exById(LW.song), s = exPartOf(ex, el.dataset.o);

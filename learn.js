@@ -78,7 +78,7 @@ function lessonScales(){
   const k = makeKey(LW.start, LW.pat), n = k.notes.length, shown = clamp(LW.step, 0, n);
   const steps = k.notes.map((x, i) => (i + 1 < n ? k.notes[i + 1].semis : 12) - x.semis);
   const stepName = s => s === 1 ? 'H' : s === 2 ? 'W' : 'W+H';
-  const boxes = k.notes.map((x, i) => `<span class="ln-n${i < shown ? ' on' : ''}${i === 0 ? ' root' : ''}">${i < shown ? `<b>${x.name}</b><small>${x.lbl}</small>` : '<b>?</b>'}</span>${i < n - 1 ? `<span class="ln-st${i < shown - 1 ? ' on' : ''}">${stepName(steps[i])}</span>` : ''}`).join('') + `<span class="ln-st${shown >= n ? ' on' : ''}">${stepName(steps[n - 1])}</span><span class="ln-n${shown >= n ? ' on' : ''}"><b>${shown >= n ? k.notes[0].name : '?'}</b><small>8</small></span>`;
+  const boxes = k.notes.map((x, i) => `<span class="ln-n${i < shown ? ' on' : ''}${i === 0 ? ' root' : ''}">${i < shown ? `<button class="ln-nb" data-act="lnNotePlay" data-m="${60 + (LW.start > 7 ? LW.start - 12 : LW.start) + x.semis}" title="Play ${x.name}"><b>${x.name}</b><small>${x.lbl}</small></button>` : '<b>?</b>'}</span>${i < n - 1 ? `<span class="ln-st${i < shown - 1 ? ' on' : ''}">${stepName(steps[i])}</span>` : ''}`).join('') + `<span class="ln-st${shown >= n ? ' on' : ''}">${stepName(steps[n - 1])}</span><span class="ln-n${shown >= n ? ' on' : ''}"><b>${shown >= n ? k.notes[0].name : '?'}</b><small>8</small></span>`;
   const acc = k.notes.filter(x => /[♯♭]/.test(x.name)).map(x => x.name);
   const opts = PC_NAMES.map((nm, i) => `<option value="${i}"${i === LW.start ? ' selected' : ''}>${nm}</option>`).join('');
   const modes = makeKey(0, 'major');
@@ -149,6 +149,26 @@ function circleSVG(sel){
   }
   return o + `<text x="${cx}" y="${cy - 6}" text-anchor="middle" class="ln-cc">${sel.minor ? CIRC_MIN[sel.pos] : CIRC_MAJ[sel.pos]}</text><text x="${cx}" y="${cy + 14}" text-anchor="middle" class="ln-cs">${sel.minor ? 'minor' : 'major'}</text></svg>`;
 }
+// the key's notes as buttons that play them, with the sharps or flats marked
+function lnNoteButtons(kk){
+  const base = 60 + (kk.pc > 7 ? kk.pc - 12 : kk.pc);
+  return kk.notes.map(x => `<button class="ln-note${/[♯♭]/.test(x.name) ? ' acc' : ''}" data-act="lnNotePlay" data-m="${base + x.semis}" title="Play ${x.name}">${x.name}</button>`).join('');
+}
+// how the selected key's signature follows from its place on the circle
+function sigHowHTML(sel, kk){
+  const p = sel.pos, majName = CIRC_MAJ[p].split('/')[0], who = sel.minor ? `${esc(kk.name)} uses the key signature of its relative major, ${esc(majName)} major. ` : '';
+  if (p === 0) return `<p class="slotnote">${who}C major is at the top of the circle: no sharps or flats, only the white keys of a piano.</p>`;
+  if (p <= 6){
+    const sh = SHARP_ORDER.slice(0, p), last = sh[p - 1], prev = CIRC_MAJ[p - 1].split('/')[0];
+    return `<p class="slotnote">${who}${esc(majName)} major is ${p} step${p > 1 ? 's' : ''} clockwise from C, so it has ${p > 1 ? `the first ${p} sharps` : 'the first sharp'} in the order: <b>${sh.join(' ')}</b>. The newest one, ${last}, is the one ${esc(prev)} major didn’t have: a half step below ${esc(majName)}, it is the key’s leading tone.${p === 6 ? ' Spelled with flats this key is G♭ major (6 flats).' : ''}</p>`;
+  }
+  const f = 12 - p, fl = FLAT_ORDER.slice(0, f);
+  return `<p class="slotnote">${who}${esc(majName)} major is ${f} step${f > 1 ? 's' : ''} counter-clockwise from C, so it has ${f > 1 ? `the first ${f} flats` : 'the first flat'} in the order: <b>${fl.join(' ')}</b>.${f >= 2 ? ` The second-to-last flat, ${fl[f - 2]}, is the key’s name.` : ' (F major is the one to remember: just B♭.)'}</p>`;
+}
+function relHowText(sel){
+  const majPc = mod(sel.pos * 7), M = makeKey(majPc, 'major'), m = makeKey(majPc + 9, 'aeolian');
+  return `${esc(m.notes[0].name)} is ${esc(M.notes[0].name)} major’s 6th note, 3 half steps below ${esc(M.notes[0].name)}.`;
+}
 function lessonCircle(){
   // the circle shows the explore key (a minor key by its relative major's position)
   LW.circ = K.majorish || !K.hept ? { pos: circPos(K.pc), minor: false } : { pos: circPos(K.pc + 3), minor: true };
@@ -165,12 +185,27 @@ function lessonCircle(){
       <div class="acts"><label class="chk"><input type="checkbox" id="lnSig"${LW.sig ? ' checked' : ''}> Key signatures</label><label class="chk"><input type="checkbox" id="lnWedge"${LW.wedge ? ' checked' : ''}> Chords of the key</label></div></div>
       <div class="ln-facts">
         <p class="ln-big"><b>${esc(kk.name)}</b></p>
-        <p>Key signature: <b>${ks.text}</b>. Notes: ${kk.notes.map(x => x.name).join(' ')}.</p>
-        <p>Its ${dfn('relative', 'The major and minor key with the same notes (and key signature), like C major and A minor.')} ${sel.minor ? 'major' : 'minor'} is <b>${esc(rel)}</b>, sitting ${sel.minor ? 'outside it' : 'inside it'} on the circle: same notes, different home.</p>
+        <p>Key signature: <b>${ks.text}</b>.</p>
+        <div class="ln-keynotes">${lnNoteButtons(kk)}<button class="btn sm" data-act="lnKeyScale" data-pc="${kk.pc}" data-sc="${kk.sc.id}">▶ Scale</button></div>
+        <p class="hint">Click a note to hear it; the sharps or flats of the key are marked.</p>
+        ${sigHowHTML(sel, kk)}
+        <p>Its ${dfn('relative', 'The major and minor key with the same notes (and key signature), like C major and A minor.')} ${sel.minor ? 'major' : 'minor'} is <b>${esc(rel)}</b>, sitting ${sel.minor ? 'outside it' : 'inside it'} on the circle: same notes, different home. ${relHowText(sel)}</p>
+        <div class="acts"><button class="btn sm" data-act="lnRelPlay" data-pos="${sel.pos}">▶ ${esc(makeKey(majPc, 'major').name)} scale, then ${esc(makeKey(majPc + 9, 'aeolian').name)}</button></div>
         ${LW.wedge ? `<p>The shaded wedge holds the key’s main chords: ${sel.minor ? 'i in the middle, iv to the left, v to the right' : 'I in the middle, IV to its left and V to its right on the outside; ii, vi and iii right under them'}. Only the diminished chord is missing.</p>` : ''}
         <div class="acts"><button class="btn sm primary" data-act="lnCircPlay">▶ ${sel.minor ? 'i–iv–V–i' : 'I–IV–V–I'} in ${esc(kk.name)}</button></div>
         ${dist}
         <p class="hint">Clicking a key changes the explore key in the header; your progression and song keep their keys.</p></div></div>
+    <h4 class="an-h4">How to tell which sharps or flats a key has</h4>
+    <ul class="an-ul"><li><b>Sharps, clockwise.</b> Each step clockwise adds one sharp, always in the same order: <b>F♯ C♯ G♯ D♯ A♯ E♯ B♯</b> (“Father Charles Goes Down And Ends Battle”). G has 1 (F♯), D has 2 (F♯ C♯), A has 3, and so on.</li>
+      <li><b>Why one at a time?</b> Moving up a 5th keeps six of the seven notes. The one that changes is the old key’s 4th note, which is raised a half step to become the new key’s 7th, its ${dfn('leading tone', 'The 7th note of a major scale, a half step below the tonic.')}. C → G: F becomes F♯, a half step below G.</li>
+      <li><b>Sharp-key shortcut:</b> the last sharp is a half step below the key’s name. Last sharp C♯ → the key is D major.</li>
+      <li><b>Flats, counter-clockwise.</b> Each step counter-clockwise adds one flat, in the sharps’ order backwards: <b>B♭ E♭ A♭ D♭ G♭ C♭ F♭</b> (“BEAD-GCF”). Here the old key’s 7th note is lowered to become the new key’s 4th: C → F, B becomes B♭.</li>
+      <li><b>Flat-key shortcut:</b> the second-to-last flat is the key’s name (B♭ E♭ A♭ → E♭ major). The one to memorize is F major: one flat, B♭.</li>
+      <li><b>At the bottom</b> the two sides meet: F♯ major (6 sharps) and G♭ major (6 flats) are the same notes spelled two ways.</li></ul>
+    <h4 class="an-h4">How the inner ring (the minor keys) is laid out</h4>
+    <ul class="an-ul"><li>Each minor key sits just inside the major key that has the same notes, its ${dfn('relative major', 'The major key with the same notes and key signature as a minor key, 3 half steps above it.')}. So a minor key uses exactly the key signature of the major key outside it: A minor has no sharps or flats, like C; E minor has one sharp, like G.</li>
+      <li>To find the relative minor of a major key, count down 3 half steps (a minor 3rd) from its name, or go up to its 6th note: C → (B, B♭) → A. To go from a minor key to its relative major, count up 3 half steps: A → B♭ → B → C.</li>
+      <li>Because every pair is the same distance apart, the inner ring is the outer ring turned by three positions: it also goes up in 5ths as you go clockwise (Am, Em, Bm, F♯m, C♯m…), and each step clockwise adds one sharp, just like the majors.</li></ul>
     <h4 class="an-h4">What the circle explains</h4>
     <ul class="an-ul"><li><b>Clockwise is toward the dominant.</b> One step clockwise from any key is its V: G is V of C. V → I is a step counter-clockwise, the strongest move in music.</li>
       <li><b>A secondary dominant is one more step clockwise.</b> D (V of G) sits one step past G: the “V of V”. A chain of dominants (E → A → D → G → C) walks counter-clockwise around the circle back home.</li>
@@ -345,6 +380,15 @@ Object.assign(ACT, {
   lnCircPlay: () => {
     const s = LW.circ, majPc = mod(s.pos * 7), k = s.minor ? { pc: mod(majPc + 9), scale: 'harmonic' } : { pc: majPc, scale: 'major' };
     previewSeq(inKeyOf(k, () => [0, 3, 4, 0].map(i => diatonic(i, false))), 0.9);
+  },
+  lnNotePlay: el => lnPlay([[0, [+el.dataset.m], 0.9]]),
+  lnKeyScale: el => { const k = makeKey(+el.dataset.pc, el.dataset.sc), base = 60 + (k.pc > 7 ? k.pc - 12 : k.pc); lnPlay([...k.notes.map(x => x.semis), 12].map((s, i) => [i * 0.3, [base + s], 0.5])); },
+  // the relative major's scale, then the relative minor's: the same notes from another home
+  lnRelPlay: el => {
+    const majPc = mod(+el.dataset.pos * 7), M = makeKey(majPc, 'major'), base = 60 + (majPc > 7 ? majPc - 12 : majPc);
+    const up = (b, k) => [...k.notes.map(x => x.semis), 12].map(s => b + s);
+    const notes = [...up(base, M), ...up(base - 3, makeKey(majPc + 9, 'aeolian'))];
+    lnPlay(notes.map((m, i) => [i * 0.28 + (i >= 8 ? 0.5 : 0), [m], 0.45]));
   },
   lnVoice: el => { const v = LW.voices[+el.dataset.i]; if (v) lnPlay([[0, [v.from], 0.8], [0.8, [v.to], 1.1]]); },
   lnTen: el => {
