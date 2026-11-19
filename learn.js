@@ -8,6 +8,7 @@
 const LESSONS = [
   { id: 'notes', name: 'Notes as numbers' },
   { id: 'scales', name: 'Scales and keys from steps' },
+  { id: 'relative', name: 'Relative and parallel scales' },
   { id: 'chords', name: 'Chords from stacked thirds' },
   { id: 'circle', name: 'The circle of fifths' },
   { id: 'tension', name: 'Tension and resolution' },
@@ -96,7 +97,88 @@ function lessonScales(){
     <div class="ln-modes">${['major', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'aeolian', 'locrian'].map((id, i) => `<button class="cchip" data-act="lnMode" data-pc="${modes.notes[i].pc}" data-id="${id}"><b>${modes.notes[i].name}</b> ${SC[id].name}</button>`).join('')}</div>`;
 }
 
-/* ---- 3. Chords from stacked thirds ---- */
+/* ---- 3. Relative and parallel scales ---- */
+const MODE_IDS = ['major', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'aeolian', 'locrian'];
+// the parent major key and which of its notes is home for the comparison; starts from the explore key
+function lnRel(){
+  if (!LW.rel){
+    const sc = K.sc;
+    if (sc.fam === 'major' && sc.mode > 1) LW.rel = { pc: mod(K.pc - SC.major.degs[sc.mode - 1].semis), deg: sc.mode - 1 };
+    else LW.rel = { pc: K.majorish ? K.pc : mod(K.pc + 3), deg: 5 };
+  }
+  return LW.rel;
+}
+const lnBase = pc => 60 + (mod(pc) > 7 ? mod(pc) - 12 : mod(pc));
+const lnStepsOf = semis => semis.map((x, i) => (i + 1 < semis.length ? semis[i + 1] : 12) - x).map(d => d === 1 ? 'H' : d === 2 ? 'W' : 'W+H').join(' ');
+// where the mode's home sits next to the major's: up to 6 half steps above, otherwise below
+const relOff = (M, deg) => { const o = M.notes[deg].semis; return o > 6 ? o - 12 : o; };
+// a strip of half steps: the major scale bracketed above, the mode bracketed below, over the same notes
+function relStripSVG(M, deg){
+  const off = relOff(M, deg), lo = Math.min(0, off), hi = Math.max(12, off + 12), n = hi - lo + 1;
+  const cw = 30, x0 = 4, top = 38, ch = 46, W = x0 * 2 + n * cw, H = top + ch + 40, base = lnBase(M.pc);
+  const X = s => x0 + (s - lo) * cw, mid = s => X(s) + (cw - 2) / 2;
+  let o = `<svg viewBox="0 0 ${W} ${H}" class="ln-rel" role="img" aria-label="${esc(M.name)} and ${esc(M.notes[deg].name)} ${esc(SC[MODE_IDS[deg]].name)} use the same notes">`;
+  for (let s = lo; s <= hi; s++){
+    const pc = mod(M.pc + s), nt = M.notes.find(x => x.pc === pc), majHome = s === 0 || s === 12, modeHome = s === off || s === off + 12;
+    const stroke = majHome ? 'var(--root)' : modeHome ? 'var(--third)' : 'var(--line)';
+    o += nt ? `<g data-act="lnNotePlay" data-m="${base + s}" style="cursor:pointer"><title>Play ${esc(nt.name)}</title><rect x="${X(s)}" y="${top}" width="${cw - 2}" height="${ch}" rx="5" fill="var(--raised)" stroke="${stroke}" stroke-width="${majHome || modeHome ? 2.5 : 1}"/><text x="${mid(s)}" y="${top + ch / 2 + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">${esc(nt.name)}</text></g>`
+      : `<rect x="${X(s)}" y="${top + 8}" width="${cw - 2}" height="${ch - 16}" rx="4" fill="var(--sunk)" opacity=".7"/>`;
+  }
+  const br = (a, b, y, dir, col, label) => `<path d="M${mid(a)} ${y + dir * 6} V${y} H${mid(b)} V${y + dir * 6}" fill="none" stroke="${col}" stroke-width="2"/><text x="${(mid(a) + mid(b)) / 2}" y="${y - dir * 5 + (dir < 0 ? 9 : 0)}" text-anchor="middle" font-size="14" font-weight="700" fill="${col}">${esc(label)}</text>`;
+  o += br(0, 12, top - 8, 1, 'var(--root)', `${M.notes[0].name} major`);
+  o += br(off, off + 12, top + ch + 8, -1, 'var(--third)', `${M.notes[deg].name} ${SC[MODE_IDS[deg]].name}`);
+  return o + '</svg>';
+}
+const sigText = k => { const a = k.notes.filter(x => /[♯♭]/.test(x.name)).map(x => x.name); return a.length ? `${a.length} ${/♯/.test(a[0]) ? 'sharp' : 'flat'}${a.length > 1 ? 's' : ''} (${a.join(' ')})` : 'no sharps or flats'; };
+function lessonRelative(){
+  const r = lnRel(), M = makeKey(r.pc, 'major'), mid = MODE_IDS[r.deg], home = M.notes[r.deg].name, mname = `${home} ${SC[mid].name}`;
+  const modeSemis = M.notes.map(x => mod(x.semis - M.notes[r.deg].semis)).sort((a, b) => a - b);
+  const opts = PC_NAMES.map((nm, i) => `<option value="${i}"${i === r.pc ? ' selected' : ''}>${makeKey(i, 'major').notes[0].name} major</option>`).join('');
+  const chips = MODE_IDS.map((id, i) => i ? `<button class="cchip${i === r.deg ? ' on' : ''}" data-act="lnRelMode" data-d="${i}" aria-pressed="${i === r.deg}"><b>${M.notes[i].name}</b> ${SC[id].name}</button>` : '').join('');
+  const isMin = r.deg === 5;
+  // parallel: same home, the major and the natural minor
+  const P = makeKey(r.pc, 'major'), Pm = makeKey(r.pc, 'aeolian');
+  const row = (k, other) => k.notes.map(x => { const d = other.notes.find(y => y.step === x.step).name !== x.name; return `<span class="ln-n on${x.semis === 0 ? ' root' : ''}${d ? ' diff' : ''}"><button class="ln-nb" data-act="lnNotePlay" data-m="${lnBase(k.pc) + x.semis}" title="Play ${esc(x.name)}"><b>${esc(x.name)}</b><small>${x.lbl}</small></button></span>`; }).join('');
+  const changed = Pm.notes.filter((x, i) => x.name !== P.notes[i].name).map(x => x.name);
+  return `<p>Two scales can be related in two different ways, and both come up all the time:</p>
+    <ul class="an-ul"><li>${dfn('Relative', 'Same notes and key signature, different home note: C major and A minor.')} scales share <b>the same notes</b> but call a <b>different note home</b>.</li>
+      <li>${dfn('Parallel', 'Same home note, different notes: C major and C minor.')} scales share <b>the same home note</b> but use <b>different notes</b>.</li></ul>
+    <h4 class="an-h4">Relative: same notes, different home</h4>
+    <div class="ln-w">
+      <div class="acts"><label class="fld"><span>Major key</span><select id="lnRelPc">${opts}</select></label></div>
+      <div class="ln-modes" role="group" aria-label="Compare with">${chips}</div>
+      <div class="ln-relwrap">${relStripSVG(M, r.deg)}</div>
+      <p class="hint">Each box is one half step (one fret); the grey gaps are notes neither scale uses. The <b style="color:var(--root)">red</b> outline is ${esc(M.notes[0].name)} major’s home, the <b style="color:var(--third)">blue</b> one is ${esc(mname)}’s home. Click a note to hear it.</p>
+      <table class="grid ln-relt"><tbody>
+        <tr><td><b>${esc(M.notes[0].name)} major</b></td><td class="n">${M.notes.map(x => esc(x.name)).join(' ')}<br><span class="mono muted">${lnStepsOf(M.notes.map(x => x.semis))}</span></td></tr>
+        <tr><td><b>${esc(mname)}</b></td><td class="n">${[...M.notes.slice(r.deg), ...M.notes.slice(0, r.deg)].map(x => esc(x.name)).join(' ')}<br><span class="mono muted">${lnStepsOf(modeSemis)}</span></td></tr></tbody></table>
+      <div class="acts"><button class="btn sm" data-act="lnRelHear" data-w="maj">▶ ${esc(M.notes[0].name)} major scale</button><button class="btn sm" data-act="lnRelHear" data-w="mode">▶ ${esc(mname)} scale</button><button class="btn sm" data-act="lnRelHear" data-w="chords">▶ Each home chord</button><button class="btn sm" data-act="lnRelOpen" data-pc="${M.notes[r.deg].pc}" data-sc="${mid}">Open ${esc(mname)} in Scales ›</button></div>
+    </div>
+    <p>Both use ${sigText(M)}, so both are written with the same ${dfn('key signature', 'The sharps or flats a key always uses, written at the start of each line of music.')}. The step pattern is the same loop started at a different place, so the half steps land in different spots measured from home, and that is what changes the mood. ${isMin
+      ? `This pair has its own name: <b>${esc(home)} minor is the relative minor of ${esc(M.notes[0].name)} major</b>, and ${esc(M.notes[0].name)} major is the relative major of ${esc(home)} minor. The minor’s home is the major’s 6th note, 3 half steps below its name (go the other way: up 3 half steps from a minor key to find its relative major). On the circle of fifths, every minor key sits right inside its relative major.`
+      : `Musicians usually keep the word “relative” for the major/minor pair (pick <b>${esc(M.notes[5].name)} Aeolian</b> to see it), but the idea is the same: ${esc(mname)} is ${esc(M.notes[0].name)} major’s ${['', '2nd', '3rd', '4th', '5th', '6th', '7th'][r.deg]} ${dfn('mode', 'The same notes as a scale, started from another one of its notes and treated as home.')}.`}</p>
+    <ul class="an-ul"><li><b>The home is set by the music, not the notes.</b> The same seven notes sound like C major over a C bass and a C chord at the cadence, and like A minor over an A bass with phrases ending on Am.</li>
+      <li><b>Moving between relatives is easy</b> because no notes change, only the chord that feels like home: a verse in A minor can open into a chorus in C major (or a bridge visits the relative minor) without a single new note.</li>
+      <li><b>In practice</b> the minor side often borrows the raised 7th (G♯ in A minor) to get a stronger V chord: that is the harmonic minor scale.</li></ul>
+    <h4 class="an-h4">Parallel: same home, different notes</h4>
+    <div class="ln-w">
+      <div class="ln-par"><span class="lbl">${esc(P.name)}</span><div class="ln-scale">${row(P, Pm)}</div>
+      <span class="lbl">${esc(Pm.notes[0].name)} minor</span><div class="ln-scale">${row(Pm, P)}</div></div>
+      <p class="hint">Shaded red: the notes that change (${changed.map(esc).join(', ')}). Click a note to hear it.</p>
+      <div class="acts"><button class="btn sm" data-act="lnRelHear" data-w="pmaj">▶ ${esc(P.name)}</button><button class="btn sm" data-act="lnRelHear" data-w="pmin">▶ ${esc(Pm.notes[0].name)} minor</button><button class="btn sm" data-act="lnRelHear" data-w="pchords">▶ I–IV–V–I, then i–iv–v–i</button><button class="btn sm" data-act="lnRelOpen" data-pc="${P.pc}" data-sc="major" data-cmp="1">Compare every scale from ${esc(P.notes[0].name)} ›</button></div>
+    </div>
+    <p>${esc(P.notes[0].name)} major and ${esc(Pm.notes[0].name)} minor share their home, but the 3rd, 6th and 7th notes are a half step lower in minor. Their key signatures are 3 steps apart on the circle of fifths. Parallel keys matter because songs <b>borrow</b> from them: the iv chord (${esc(inKeyOf({ pc: P.pc, scale: 'aeolian' }, () => diatonic(3, false)).symbol)}), ♭VI (${esc(inKeyOf({ pc: P.pc, scale: 'aeolian' }, () => diatonic(5, false)).symbol)}) and ♭VII (${esc(inKeyOf({ pc: P.pc, scale: 'aeolian' }, () => diatonic(6, false)).symbol)}) in ${esc(P.name)} all come from ${esc(Pm.notes[0].name)} minor (see <button class="linkish" data-act="lnGo" data-id="outside">Chords outside the key</button>). Every mode from the same home is a parallel scale too: <b>Compare every scale from ${esc(P.notes[0].name)}</b> opens them side by side in the Scales tab.</p>
+    <h4 class="an-h4">Side by side</h4>
+    <div class="scroller"><table class="grid ln-sbs"><thead><tr><th></th><th>Relative</th><th>Parallel</th></tr></thead><tbody>
+      <tr><td>Example</td><td>C major / A minor</td><td>C major / C minor</td></tr>
+      <tr><td>Notes</td><td>The same 7</td><td>3 different (3rd, 6th, 7th)</td></tr>
+      <tr><td>Home note</td><td>Different (3 half steps apart)</td><td>The same</td></tr>
+      <tr><td>Key signature</td><td>The same</td><td>3 sharps or flats apart</td></tr>
+      <tr><td>On the circle</td><td>Inside / outside ring, same spot</td><td>3 steps apart</td></tr>
+      <tr><td>Used for</td><td>Changing mood without new notes; verse ↔ chorus, bridges</td><td>Borrowed chords (iv, ♭VI, ♭VII); switching a section from minor to major</td></tr></tbody></table></div>`;
+}
+
+/* ---- 4. Chords from stacked thirds ---- */
 function lessonChords(){
   const k = K.hept ? { pc: K.pc, scale: K.sc.id } : { pc: K.pc, scale: K.majorish ? 'major' : 'aeolian' };
   const name = makeKey(k.pc, k.scale).name;
@@ -114,7 +196,7 @@ function lessonChords(){
       <li><b>${dfn('Dominant', 'The most tension in the key; it pulls back home.')} (D, red)</b>: V (and vii°) hold the most tension and pull back to I. Most songs are this loop: home → away → tension → home.</li></ul>`;
 }
 
-/* ---- 4. The circle of fifths ---- */
+/* ---- 5. The circle of fifths ---- */
 const CIRC_MAJ = ['C', 'G', 'D', 'A', 'E', 'B', 'F♯/G♭', 'D♭', 'A♭', 'E♭', 'B♭', 'F'];
 const CIRC_MIN = ['Am', 'Em', 'Bm', 'F♯m', 'C♯m', 'G♯m', 'E♭m', 'B♭m', 'Fm', 'Cm', 'Gm', 'Dm'];
 const SHARP_ORDER = ['F♯', 'C♯', 'G♯', 'D♯', 'A♯', 'E♯'], FLAT_ORDER = ['B♭', 'E♭', 'A♭', 'D♭', 'G♭', 'C♭'];
@@ -205,6 +287,7 @@ function lessonCircle(){
     <h4 class="an-h4">How the inner ring (the minor keys) is laid out</h4>
     <ul class="an-ul"><li>Each minor key sits just inside the major key that has the same notes, its ${dfn('relative major', 'The major key with the same notes and key signature as a minor key, 3 half steps above it.')}. So a minor key uses exactly the key signature of the major key outside it: A minor has no sharps or flats, like C; E minor has one sharp, like G.</li>
       <li>To find the relative minor of a major key, count down 3 half steps (a minor 3rd) from its name, or go up to its 6th note: C → (B, B♭) → A. To go from a minor key to its relative major, count up 3 half steps: A → B♭ → B → C.</li>
+      <li>To see a relative pair laid out note by note (and how it differs from a parallel pair), see <button class="linkish" data-act="lnGo" data-id="relative">Relative and parallel scales</button>.</li>
       <li>Because every pair is the same distance apart, the inner ring is the outer ring turned by three positions: it also goes up in 5ths as you go clockwise (Am, Em, Bm, F♯m, C♯m…), and each step clockwise adds one sharp, just like the majors.</li></ul>
     <h4 class="an-h4">What the circle explains</h4>
     <ul class="an-ul"><li><b>Clockwise is toward the dominant.</b> One step clockwise from any key is its V: G is V of C. V → I is a step counter-clockwise, the strongest move in music.</li>
@@ -213,7 +296,7 @@ function lessonCircle(){
       <li><b>Distance = notes that change.</b> Each step around the circle changes exactly one note, so neighbors (C and G) share 6 notes and a key change between them is smooth; keys far apart (C and F♯) share almost none. Click two keys in turn to compare.</li></ul>`;
 }
 
-/* ---- 5. Tension and resolution ---- */
+/* ---- 6. Tension and resolution ---- */
 const PAIRS = {
   V7I: ['V7 → I', [[7, 4, '7'], [0, 0, 'maj']], 'The dominant 7th holds a tritone (B and F in C) that splits apart by half steps: B rises to C, F falls to E. That is the strongest pull in tonal music, an authentic cadence.'],
   vii7I: ['vii°7 → I', [[11, 6, 'dim7'], [0, 0, 'maj']], 'A diminished 7th is a V7 without its root: every note is a half or whole step from a note of the home chord, so it snaps into place.'],
@@ -292,7 +375,7 @@ function lessonTension(){
       <li>${dfn('Authentic cadence', 'V (or V7) → I: the strongest ending.')} (V–I) has the leading tone and the tritone; the ${dfn('plagal cadence', 'IV → I, the “amen” ending.')} (IV–I) has neither, so it sounds softer.</li></ul>`;
 }
 
-/* ---- 6. Chords outside the key ---- */
+/* ---- 7. Chords outside the key ---- */
 const OUT_CARDS = [
   { cat: 'sec', title: 'Secondary dominant (V7/x)', how: 'Pick a chord of the key (not I, not the diminished one) and build a dominant 7th a 5th above it: a major chord with a minor 7th. Its 3rd is a half step under the target’s root.', ex: [[0, 0, 'maj'], [9, 5, '7'], [2, 1, 'm'], [7, 4, '7'], [0, 0, 'maj']], focus: 1, note: 'A7 is the V7 of Dm (V7/ii): its C♯ rises to D.', common: 'Very common', songs: ['eight-days', 'im-so-tired', 'poor-places', 'in-my-life', 'something', 'creep', 'dlbia', 'jesus-etc', 'simple-twist'] },
   { cat: 'ext', title: 'Extended dominants', how: 'String secondary dominants together, each the V7 of the next, so every chord resolves down a 5th into another dominant until the last one lands.', ex: [[0, 0, 'maj'], [4, 2, '7'], [9, 5, '7'], [2, 1, '7'], [7, 4, '7'], [0, 0, 'maj']], focus: 2, note: 'E7 → A7 → D7 → G7 → C walks round the circle of fifths back home.', common: 'Common (ragtime, jazz, 1960s pop)' },
@@ -313,7 +396,7 @@ function lessonOutside(){
       <p><b>How to build it:</b> ${c.how} ${c.note}</p>${use.place ? `<p><b>Where it works:</b> ${use.place}</p>` : ''}${use.not ? `<p><b>When it doesn’t:</b> ${use.not}</p>` : ''}${exLinks(c.songs)}</div>`; }).join('')}</div>`;
 }
 
-/* ---- 7. Modulation ---- */
+/* ---- 8. Modulation ---- */
 const MODS = [
   { title: 'Pivot chord', to: 'G major', ex: [[0, 0, 'maj'], [5, 3, 'maj'], [9, 5, 'm'], [2, 1, '7'], [7, 4, 'maj'], [0, 0, 'maj'], [7, 4, 'maj']], text: 'Find a chord both keys share and use it as the hinge. Am is vi in C and ii in G, so after Am the D7 (V7 of G) tips the music into G.', where: 'The smoothest way into a new section: a bridge, or a verse that moves to the dominant key.', songs: ['penny-lane'] },
   { title: 'Through the new key’s V7', to: 'E♭ major', ex: [[0, 0, 'maj'], [5, 3, 'maj'], [7, 4, 'maj'], [10, 6, '7'], [3, 2, 'maj']], text: 'Just play the dominant 7th of the new key: B♭7 points straight at E♭. No shared chord is needed; the V7 does the work.', where: 'Into a chorus or a bridge in a more distant key, when you want a clear, deliberate change.' },
@@ -335,7 +418,7 @@ function lessonModulation(){
 }
 
 /* ---- The tab ---- */
-const LESSON_HTML = { notes: lessonNotes, scales: lessonScales, chords: lessonChords, circle: lessonCircle, tension: lessonTension, outside: lessonOutside, modulation: lessonModulation };
+const LESSON_HTML = { notes: lessonNotes, scales: lessonScales, relative: lessonRelative, chords: lessonChords, circle: lessonCircle, tension: lessonTension, outside: lessonOutside, modulation: lessonModulation };
 function renderLearn(){
   const el = $('#p-learn'), cur = LESSONS.find(l => l.id === S.learnLesson) || LESSONS[0], i = LESSONS.indexOf(cur);
   el.innerHTML = `<div class="sec-h"><h2>Learn</h2><p class="hint">Short lessons with something to play with in each. Everything here uses the explore key in the header and never changes your progression or song.</p></div>
@@ -390,6 +473,24 @@ Object.assign(ACT, {
     const notes = [...up(base, M), ...up(base - 3, makeKey(majPc + 9, 'aeolian'))];
     lnPlay(notes.map((m, i) => [i * 0.28 + (i >= 8 ? 0.5 : 0), [m], 0.45]));
   },
+  // from another tab: open a lesson in the Learn tab
+  lnLesson: el => { S.learnLesson = el.dataset.id; ACT.tab({ dataset: { tab: 'learn' } }); },
+  lnRelMode: el => { lnRel().deg = +el.dataset.d; renderLearn(); ACT.lnRelHear({ dataset: { w: 'mode' } }); },
+  lnRelHear: el => {
+    const r = lnRel(), M = makeKey(r.pc, 'major'), base = lnBase(r.pc), w = el.dataset.w;
+    const run = (b, semis) => [...semis, 12].map((x, i) => [i * 0.28, [b + x], 0.45]);
+    if (w === 'maj') lnPlay(run(base, M.notes.map(x => x.semis)));
+    else if (w === 'mode'){ const o = relOff(M, r.deg), h = M.notes[r.deg].semis; lnPlay(run(base + o, M.notes.map(x => mod(x.semis - h)).sort((a, b) => a - b))); }
+    else if (w === 'chords'){
+      const a = inKeyOf({ pc: r.pc, scale: 'major' }, () => diatonic(0, false)), b = inKeyOf({ pc: r.pc, scale: 'major' }, () => diatonic(r.deg, false));
+      lnPlay([[0, lnChordMidis(a), 1.2], [1.3, lnChordMidis(b), 1.5]]);
+    }
+    else if (w === 'pmaj') lnPlay(run(base, makeKey(r.pc, 'major').notes.map(x => x.semis)));
+    else if (w === 'pmin') lnPlay(run(base, makeKey(r.pc, 'aeolian').notes.map(x => x.semis)));
+    else if (w === 'pchords') previewSeq([...inKeyOf({ pc: r.pc, scale: 'major' }, () => [0, 3, 4, 0].map(i => diatonic(i, false))), ...inKeyOf({ pc: r.pc, scale: 'aeolian' }, () => [0, 3, 4, 0].map(i => diatonic(i, false)))], 0.8);
+  },
+  // open a scale in the Scales tab (as the explore key); data-cmp shows every scale from that home
+  lnRelOpen: el => { if (el.dataset.cmp) S.cmp = 'family'; keyWhy('learn'); S.keyPc = mod(+el.dataset.pc); S.scale = el.dataset.sc; ui.focus = null; ACT.tab({ dataset: { tab: 'scales' } }); },
   lnVoice: el => { const v = LW.voices[+el.dataset.i]; if (v) lnPlay([[0, [v.from], 0.8], [0.8, [v.to], 1.1]]); },
   lnTen: el => {
     const vs = LW.voices, w = LW.wrong, arg = el.dataset.arg;
@@ -407,6 +508,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'lnA'){ LW.a = +v; renderLearn(); }
   else if (t.id === 'lnB'){ LW.b = +v; renderLearn(); }
   else if (t.id === 'lnStart'){ LW.start = +v; LW.step = 0; renderLearn(); }
+  else if (t.id === 'lnRelPc'){ lnRel().pc = +v; renderLearn(); }
   else if (t.id === 'lnPat'){ LW.pat = v; LW.step = 0; renderLearn(); }
   else if (t.id === 'lnSig'){ LW.sig = t.checked; renderLearn(); }
   else if (t.id === 'lnWedge'){ LW.wedge = t.checked; renderLearn(); }

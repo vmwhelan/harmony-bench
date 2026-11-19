@@ -796,15 +796,18 @@ function renderScales(){
         return `<tr class="${pc === K.pc ? 'cur' : ''}" data-act="cmpRoot" data-pc="${pc}"><td class="n first">${k.notes[0].name} ${sc.short}</td>${k.notes.map(n => `<td class="n">${n.name}</td>`).join('')}<td class="n" style="font-weight:400">${accs}</td></tr>`;
       }).join('') + '</tbody></table>';
   } else {
-    const rows = SCLIST.filter(s => s.group === sc.group);
-    cmp = `<table class="grid"><thead><tr><th>Scale</th><th colspan="8">Notes from ${K.notes[0].name} (red = differs from major)</th></tr></thead><tbody>` + rows.map(s => {
+    // the scale's own family, plus the major modes (the reference everything is compared with) when it is from another family
+    const groups = sc.group === 'Major modes' ? [sc.group] : [sc.group, 'Major modes'];
+    const row = s => {
       const k = makeKey(K.pc, s.id);
       return `<tr class="${s.id === S.scale ? 'cur' : ''}" data-act="cmpScale" data-id="${s.id}"><td>${s.name}</td>${k.notes.map(n => `<td class="n">${n.name} <span class="${n.acc ? 'alt' : 'muted'}" style="font-size:11px">${n.lbl}</span></td>`).join('')}</tr>`;
-    }).join('') + '</tbody></table>';
+    };
+    cmp = `<table class="grid"><thead><tr><th>Scale</th><th colspan="8">Notes from ${K.notes[0].name} (red = differs from major)</th></tr></thead><tbody>` +
+      groups.map(g => (groups.length > 1 ? `<tr class="grp"><th colspan="9">${g}</th></tr>` : '') + SCLIST.filter(s => s.group === g).map(row).join('')).join('') + '</tbody></table>';
   }
 
   el.innerHTML = `${exploreBannerHTML()}
-  <div class="sc-title"><span class="lbl">Scale</span><h2>${K.name.replace(sc.short, sc.name)}</h2><p class="hint">${sc.blurb}</p>${rel ? `<p class="hint">${rel}</p>` : ''}</div>
+  <div class="sc-title"><span class="lbl">Scale</span><h2>${K.name.replace(sc.short, sc.name)}</h2><p class="hint">${sc.blurb}</p>${rel ? `<p class="hint">${rel}</p>` : ''}<p class="hint"><button class="linkish" data-act="lnLesson" data-id="relative">Relative and parallel scales, explained ›</button></p></div>
   <div class="sec"><div class="sec-h"><h3>Notes and steps</h3><span class="mono muted" style="font-size:12.5px">${pattern}</span></div>
     <div class="scnotes">${notes}</div>
     <p class="hint">W = whole step (2 frets), H = half step (1 fret), W+H = augmented 2nd (3 frets). Each note shows its interval above the root. Click a note to hear it.</p>
@@ -814,7 +817,7 @@ function renderScales(){
     ${K.hept ? `<p class="hint">Stack every other note of the scale to build each chord. The colored bar shows its job: <span class="tag"><i class="fnT"></i>tonic</span> <span class="tag"><i class="fnPD"></i>pre-dominant</span> <span class="tag"><i class="fnD"></i>dominant</span>. Click a chord to hear it and see it on the neck; <b>+</b> adds it to the progression.</p>` : ''}</div>
   <div class="sec"><h3>Every chord that fits</h3><p class="hint">Every chord type in the library whose notes all belong to ${K.name}, listed by root.</p><div class="fits">${fitsHtml}</div></div>
   <div class="sec"><div class="sec-h"><h3>Compare</h3><div class="seg" id="cmpSeg"><button data-v="roots" aria-pressed="${S.cmp === 'roots'}">This scale from all 12 roots</button><button data-v="family" aria-pressed="${S.cmp === 'family'}">Related scales from ${K.notes[0].name}</button></div></div>
-    <div class="scroller">${cmp}</div><p class="hint">Click a row to switch to it.</p></div>`;
+    <div class="scroller">${cmp}</div><p class="hint">Click a row to switch to it.${S.cmp === 'family' ? ` Every row starts on ${K.notes[0].name}, so these are the ${K.notes[0].name} <i>parallel</i> scales: same home, different notes.` : ''}</p></div>`;
 }
 
 /* ================= Chord library tab ================= */

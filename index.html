@@ -709,6 +709,16 @@ button.tag.an-link{border:0;background:none;padding:0;cursor:pointer;text-align:
 .ln-n.on{border:1px solid var(--line);background:var(--raised);color:var(--ink)}.ln-n.on.root{border-color:var(--root);box-shadow:inset 0 0 0 1px var(--root)}
 .ln-st{font-family:var(--mono);font-size:11px;padding:2px 4px;border-radius:4px;background:var(--sunk);color:var(--muted);opacity:.4}.ln-st.on{opacity:1;color:var(--ink)}
 .ln-modes{display:flex;flex-wrap:wrap;gap:6px}
+.ln-modes .cchip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.ln-relwrap{max-width:100%;overflow-x:auto}.ln-rel{display:block;width:100%;max-width:660px;height:auto}
+.ln-sbs td,.ln-sbs th{white-space:normal;min-width:7em}
+.ln-relt td{white-space:normal}.ln-relt td:first-child{width:40%}.ln-relt{font-size:13px}
+.ln-par{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 10px;align-items:center}
+.ln-par .ln-scale{flex-wrap:nowrap}.ln-par .ln-n{flex:1 1 0;min-width:0;max-width:52px;padding:5px 2px}.ln-par .ln-nb{width:100%}
+.ln-par .ln-n.on.root{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}.ln-par .ln-n.diff{background:color-mix(in srgb,var(--root) 16%,var(--raised));border-color:var(--root)}.ln-par .ln-n.diff small{color:var(--root);font-weight:700}
+.linkish{background:none;border:0;padding:0;font:inherit;color:var(--ink);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+table.grid tr.grp th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--sunk);padding-top:8px}
+@media (max-width:520px){.ln-par{grid-template-columns:minmax(0,1fr)}}
 .cc-list{display:grid;gap:4px;max-height:42vh;overflow:auto;padding:2px}
 .cc-row{display:grid;grid-template-columns:auto auto 1fr;gap:2px 10px;align-items:baseline;border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:var(--raised);cursor:pointer}
 .cc-row b{font-family:var(--display);font-size:18px}.cc-row .cc-diff{grid-column:2 / -1;font-size:12.5px;color:var(--muted)}.cc-row .cc-diff.k-strong{color:var(--good)}
