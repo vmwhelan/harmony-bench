@@ -220,15 +220,20 @@ function anChordHTML(){
   // voice leading prev → chord → next (the upper voices, voiced as smoothly as playback does)
   const v1 = leadUpper(ch, prev ? rootUpper(prev) : null), v0 = prev ? rootUpper(prev) : null, v2 = next ? leadUpper(next, v1) : null;
   const near = (m, list) => list.reduce((b, x) => Math.abs(x - m) < Math.abs(b - m) ? x : b, list[0]);
-  const step = (x, y, chX, chY) => {
-    const d = y - x, ad = Math.abs(d), nm = (c, m) => (toneOf(c, m) || { name: nameFor(m) }).name;
+  // a table: one column per chord (prev, this one, next) with the moves between them, so each chord's notes line up
+  const nm = (c, m) => (toneOf(c, m) || { name: nameFor(m) }).name;
+  const move = (x, y) => {
+    const d = y - x, ad = Math.abs(d);
     const how = d === 0 ? 'stays' : `${d > 0 ? '↑' : '↓'} ${ad === 1 ? 'half step' : ad === 2 ? 'whole step' : ad + ' half steps'}`;
-    return `<span class="an-mv${ad === 1 ? ' half' : d === 0 ? ' hold' : ''}">${how}</span><b>${nm(chY, y)}</b>`;
+    return `<span class="an-mv${ad === 1 ? ' half' : d === 0 ? ' hold' : ''}">${how}</span>`;
   };
-  const vl = v1.slice().sort((x, y) => y - x).map(m => {
+  const vhead = `${v0 ? `<span class="an-vh">${prev.symbol}</span><span></span>` : ''}<span class="an-vh">${ch.symbol}</span>${v2 ? `<span></span><span class="an-vh">${next.symbol}</span>` : ''}`;
+  const vl = vhead + v1.slice().sort((x, y) => y - x).map(m => {
     const t = toneOf(ch, m), role = t && t.num === 3 && isDomType(ch) && a.fn === 'D' ? 'leading tone' : t && t.num === 7 && isDom7(ch) ? '7th' : '';
-    return `<div class="an-vrow">${v0 ? (() => { const p = near(m, v0); return `<b>${(toneOf(prev, p) || { name: nameFor(p) }).name}</b>${step(p, m, prev, ch).replace(/<b>.*<\/b>$/, '')}`; })() : ''}<b class="an-me">${t ? t.name : nameFor(m)}${role ? `<small>${role}</small>` : ''}</b>${v2 ? step(m, near(m, v2), ch, next) : ''}</div>`;
+    const p = v0 ? near(m, v0) : null, q = v2 ? near(m, v2) : null;
+    return `${v0 ? `<b class="an-vn">${nm(prev, p)}</b>${move(p, m)}` : ''}<b class="an-vn an-me">${t ? t.name : nameFor(m)}${role ? `<small>${role}</small>` : ''}</b>${v2 ? `${move(m, q)}<b class="an-vn">${nm(next, q)}</b>` : ''}`;
   }).join('');
+  const vlCols = (v0 ? 2 : 0) + 1 + (v2 ? 2 : 0);
   const tr = next ? transition(ch, next) : null;
   const own = tgt != null && tgtCh ? (a.tonic != null && a.target == null ? [ch, chordAt(tgt + 7, '7'), tgtCh] : [ch, tgtCh])
     : src ? [stackChord(srcFull.notes, srcFull.L, 0, false), ch, stackChord(srcFull.notes, srcFull.L, 0, false)] : null;
@@ -240,7 +245,7 @@ function anChordHTML(){
     <p>${a.text}</p>
     <h4 class="an-h4">Where it comes from</h4>${ruler}
     <h4 class="an-h4">Its notes</h4><div class="an-notes">${notes}</div>
-    ${v0 || v2 ? `<h4 class="an-h4">How the voices move</h4><div class="an-vl">${vl}</div><p class="hint">${prev ? prev.symbol + ' → ' : ''}<b>${ch.symbol}</b>${next ? ' → ' + next.symbol : ''}, top voice first. Half steps (highlighted) are the strongest pulls; notes that stay tie the chords together.</p>` : ''}
+    ${v0 || v2 ? `<h4 class="an-h4">How the voices move</h4><div class="an-vl" style="grid-template-columns:repeat(${vlCols}, max-content)">${vl}</div><p class="hint">${prev ? prev.symbol + ' → ' : ''}<b>${ch.symbol}</b>${next ? ' → ' + next.symbol : ''}, top voice first. Half steps (highlighted) are the strongest pulls; notes that stay tie the chords together.</p>` : ''}
     ${tr ? `<h4 class="an-h4">Why it works into ${next.symbol}</h4><ul class="an-ul">${tr.lines.slice(0, 4).map(l => `<li>${l}</li>`).join('')}</ul>` : ''}
     ${use ? `<h4 class="an-h4">Where it is used</h4><p>${use.place}</p>${use.not ? `<h4 class="an-h4">When it doesn’t work</h4><p>${use.not}</p>` : ''}` : ''}`;
 }

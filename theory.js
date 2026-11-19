@@ -718,7 +718,7 @@ function transition(A, B){
     lines.push('Pre-dominant to dominant: the classic way to build tension before going home.');
   } else if (aA.fn === 'PD' && tonicB && (aA.num === 4 || aA.num === 6)){
     tag = 'Plagal'; score = 2.2; kind = 'strong';
-    lines.push(A.q.minor ? `Minor plagal cadence: the ${toneName(A, 3)} sinks a half step to ${toneName(B, 5) || 'the 5th'}. Tender and nostalgic.` : 'Plagal (“amen”) cadence: IV back to I. Gentler than V–I.');
+    lines.push(A.q.minor ? `Minor plagal cadence: the ${toneName(A, 3)} sinks a half step to ${(toneOf(B, A.rootPc + 2) || { name: 'the 5th' }).name}, the 5th of ${B.symbol}. Tender and nostalgic.` : 'Plagal (“amen”) cadence: IV back to I. Gentler than V–I.');
   } else if (iv === 5){
     tag = 'Strong'; score = 2.6; kind = 'strong';
   } else if (aA.fn === 'D' && aB.fn === 'PD'){

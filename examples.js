@@ -178,6 +178,13 @@ const EXAMPLES = [
         notes: 'C7 is II7, the V7 of F (V of V), with an E natural outside B♭ major. Like the Beatles in "Eight Days a Week", it skips its target and falls to E♭ (IV): a bittersweet lift that never resolves. (Charts play it capo 3 with G, D, Em, C, A7 shapes; this is how it sounds.)' },
     ],
     takeaway: 'II7 → IV is a gentle way to brighten a phrase without a cadence; it works especially well in slow, drifting songs.' },
+
+  { id: 'simple-twist', song: 'Simple Twist of Fate', artist: 'Bob Dylan', year: 1975, key: { pc: 4, scale: 'major' }, tags: ['Chromatic line', 'Secondary dominant', 'Borrowed iv'],
+    sections: [
+      { name: 'Verse', chart: '| E | Emaj7 | E7 | A |\n| Am | E | B | A |\n| E | B | E |', look: [[2, 'V7/IV'], [4, 'iv'], [6, 'V']],
+        notes: 'One line slides down by half steps inside the E chord: E → D♯ (Emaj7) → D (E7) → C♯ (the 3rd of A). That D natural is outside E major and turns E7 into the V7 of A (V7/IV), so the move to A feels pulled, not just placed. Then A turns into A minor, iv borrowed from E minor: its C natural sinks a half step to B, the 5th of E, a minor plagal cadence that sounds tender and a little sad. After that it is plain I, V and IV. (Dylan played it in open E tuning; charts in D or with a capo are the same moves, this is how the record sounds.)' },
+    ],
+    takeaway: 'Let one voice walk down by half steps (8 → 7 → ♭7 → 6) to turn I into a V7/IV, then darken IV to iv on the way home. The same descending line opens George Harrison’s "Something".' },
 ];
 
 /* ---- Parsing and playing ---- */
